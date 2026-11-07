@@ -269,7 +269,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-const VERSION = "1.7";
+const VERSION = "1.8";
 
 /* ===== CONFIGURATION FIREBASE (projet courses-e9163) ===== */
 const firebaseConfig = {
@@ -769,6 +769,10 @@ $("vider").addEventListener("click", () => {
   oui.onclick = () => { c.replaceChildren(); Promise.all(ids.map((id) => deleteDoc(refArticle(id)))).catch(erreur); };
   box.append(s, non, oui); c.appendChild(box);
 });
+/* ---------- ouverture sans réseau : l'appli est gardée sur l'appareil (service worker) ---------- */
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+  navigator.serviceWorker.register("sw.js").catch((e) => console.warn("Mode hors ligne indisponible :", e));
+}
 </script>
 </body>
 </html>
