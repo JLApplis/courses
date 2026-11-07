@@ -170,6 +170,14 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
 .deco-confirme button { border: none; border-radius: 10px; padding: 7px 12px; font: 600 14px var(--font); cursor: pointer; }
 .deco-confirme .oui { background: var(--tomato); color: #fff; }
 .deco-confirme .non { background: #F3ECDD; color: var(--fg); }
+/* sauvegarde */
+.bloc-s { margin-top: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+.bloc-s h3 { margin: 0 0 6px; font: 600 18px var(--display); color: var(--leaf); }
+.bloc-s p { margin: 4px 0; font-size: 15px; }
+.bloc-s .note { color: #6B6455; font-size: 14px; }
+.btns { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 8px; }
+.sauv-msg { min-height: 20px; font-size: 14px; font-weight: 600; color: var(--leaf); margin-top: 8px; }
+.sauv-msg.alerte { color: var(--tomato); }
 .version { text-align: center; color: var(--muted); font-size: 12px; padding-top: 26px; }
 </style>
 </head>
@@ -202,6 +210,7 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
   <button class="tiroir-item ajout-item" id="nouvelle-note" type="button"><span class="ic">＋</span>Nouvelle note</button>
   <div class="tiroir-sep"></div>
   <button class="tiroir-item" id="aller-archives" type="button"><span class="ic">🗄️</span>Archives<span class="compte" id="nb-archives"></span></button>
+  <button class="tiroir-item" id="aller-sauvegarde" type="button"><span class="ic">💾</span>Sauvegarde</button>
   <div class="tiroir-pied">Courses <span id="version"></span> — JLApplis<br><button class="deco" id="deco" type="button">Se déconnecter</button>
     <div class="deco-confirme" id="deco-confirme" hidden><span>Se déconnecter ? Pour te reconnecter, il faudra du réseau.</span><span class="deco-btns"><button class="non" id="deco-non" type="button">Annuler</button><button class="oui" id="deco-oui" type="button">Se déconnecter</button></span></div></div>
 </nav>
@@ -261,6 +270,23 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
     <div class="confirme" id="note-confirme" hidden><span>Supprimer définitivement cette note ?</span><button class="non" id="note-non" type="button">Annuler</button><button class="oui" id="note-oui" type="button">Supprimer</button></div>
   </section>
 
+  <section id="vue-sauvegarde" hidden>
+    <div class="bloc-s"><h3>Contenu</h3><p id="sauv-contenu"></p><p class="note">Dernière sauvegarde depuis cet appareil : <b id="sauv-derniere"></b></p></div>
+    <div class="bloc-s"><h3>💾 Sauvegarder</h3>
+      <p class="note">Crée un fichier JSON daté avec toutes tes listes, leurs articles, les suggestions, les notes et les archives. Il faut du réseau.</p>
+      <p class="note">Dossier de sauvegarde : <b id="fs-nom">…</b></p>
+      <div class="btns"><button class="pop-ok" id="sauv-go" type="button">💾 Sauvegarder maintenant</button><button class="lien" id="fs-choisir" type="button" hidden>📁 Choisir le dossier…</button><button class="lien rouge" id="fs-oublier" type="button" hidden>Retirer le dossier</button></div>
+      <p class="note" id="fs-aide"></p>
+    </div>
+    <div class="bloc-s"><h3>↩️ Restaurer</h3>
+      <p class="note">Remplace <b>toutes</b> les données actuelles par celles d'un fichier de sauvegarde COURSES. Juste avant, l'état actuel est sauvegardé automatiquement (fichier « COURSES_avant_restauration_… »). Il faut du réseau.</p>
+      <div class="btns"><button class="lien" id="rest-choisir" type="button">📂 Choisir une sauvegarde…</button></div>
+      <div class="confirme" id="rest-confirme" hidden><span id="rest-txt"></span><button class="non" id="rest-non" type="button">Annuler</button><button class="oui" id="rest-oui" type="button">Tout remplacer</button></div>
+      <input type="file" id="file-json" accept=".json,application/json" hidden>
+    </div>
+    <div class="sauv-msg" id="sauv-msg" role="status"></div>
+  </section>
+
   <section id="vue-archives" hidden>
     <div id="liste-archives"></div>
     <div class="vide" id="archives-vide" hidden>Rien dans les archives.</div>
@@ -275,9 +301,9 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
 */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, getDocs, getDocsFromCache } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, getDocs, getDocsFromCache, getDoc, writeBatch } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-const VERSION = "1.12";
+const VERSION = "1.13";
 
 /* ===== CONFIGURATION FIREBASE (projet courses-e9163) ===== */
 const firebaseConfig = {
@@ -361,7 +387,7 @@ const archives = () => GROUPES.filter((g) => g.archive).sort((a, b) => b.modifie
 const groupe = (id) => GROUPES.find((g) => g.id === id);
 function vueValide(v) {
   if (!v || !v.type) return false;
-  if (v.type === "notes" || v.type === "archives") return true;
+  if (v.type === "notes" || v.type === "archives" || v.type === "sauvegarde") return true;
   const g = groupe(v.id); return !!g && !g.archive && g.type === (v.type === "note" ? "note" : "liste");
 }
 function ouvrirTiroir(o) { $("tiroir").hidden = !o; $("voile").hidden = !o; if (o) { const b = $("tiroir").querySelector(".tiroir-item.actif") || $("fermer-tiroir"); b.focus(); } }
@@ -374,13 +400,14 @@ function rendreTiroir() {
   }));
   $("aller-notes").classList.toggle("actif", !!VUE && (VUE.type === "notes" || VUE.type === "note"));
   $("aller-archives").classList.toggle("actif", !!VUE && VUE.type === "archives");
+  $("aller-sauvegarde").classList.toggle("actif", !!VUE && VUE.type === "sauvegarde");
   $("nb-notes").textContent = notesActives().length || ""; $("nb-archives").textContent = archives().length || "";
 }
 function montrer(v) {
   if (VUE && VUE.type === "note") enregistrerNote(true);
   VUE = v; try { localStorage.setItem("courses_vue", JSON.stringify(v)); } catch (e) { /* sans gravité */ }
   ouvrirTiroir(false); $("pop-actions").hidden = true;
-  ["liste", "notes", "note", "archives"].forEach((t) => { $("vue-" + t).hidden = t !== v.type; });
+  ["liste", "notes", "note", "archives", "sauvegarde"].forEach((t) => { $("vue-" + t).hidden = t !== v.type; });
   if (v.type !== "liste") { desabListe.forEach((f) => f()); desabListe = []; G = null; fermerInsertion(); }
   if (v.type === "liste") ouvrirListe(v.id);
   rafraichirVue(); rendreTiroir(); window.scrollTo(0, 0);
@@ -388,11 +415,12 @@ function montrer(v) {
 function rafraichirVue() {
   const v = VUE; if (!v) return;
   const g = v.id ? groupe(v.id) : null;
-  $("titre-vue").textContent = v.type === "notes" ? "Notes" : v.type === "archives" ? "Archives" : (g ? (g.nom || (g.type === "note" ? "Note" : "Sans nom")) : "");
+  $("titre-vue").textContent = v.type === "notes" ? "Notes" : v.type === "archives" ? "Archives" : v.type === "sauvegarde" ? "Sauvegarde" : (g ? (g.nom || (g.type === "note" ? "Note" : "Sans nom")) : "");
   $("btn-actions").hidden = v.type !== "liste";
   $("etat").hidden = v.type !== "liste";
   if (v.type === "notes") rendreNotes();
   if (v.type === "archives") rendreArchives();
+  if (v.type === "sauvegarde") rendreSauvegarde();
   if (v.type === "note" && g && document.activeElement !== $("note-titre") && document.activeElement !== $("note-texte") && !NOTE_SALE) chargerNote(g);
 }
 function ouvrirListe(gid) {
@@ -510,6 +538,7 @@ $("nouvelle-note").addEventListener("click", () => creerGroupe("note"));
 $("nouvelle-note-2").addEventListener("click", () => creerGroupe("note"));
 $("aller-notes").addEventListener("click", () => montrer({ type: "notes" }));
 $("aller-archives").addEventListener("click", () => montrer({ type: "archives" }));
+$("aller-sauvegarde").addEventListener("click", () => { $("sauv-msg").textContent = ""; montrer({ type: "sauvegarde" }); });
 $("btn-actions").addEventListener("click", () => ouvrirActions($("pop-actions").hidden));
 $("pop-ok").addEventListener("click", validerNom);
 $("pop-nom").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); validerNom(); } if (e.key === "Escape") ouvrirActions(false); });
@@ -800,6 +829,150 @@ $("vider").addEventListener("click", () => {
   oui.onclick = () => { c.replaceChildren(); Promise.all(ids.map((id) => deleteDoc(refArticle(id)))).catch(erreur); };
   box.append(s, non, oui); c.appendChild(box);
 });
+/* ---------- sauvegarde JSON (même principe qu'ASSPER) ---------- */
+const KEY_DERNIERE = "courses_derniere_sauvegarde";
+const p2 = (n) => String(n).padStart(2, "0");
+function horodatage() { const d = new Date(); return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()) + "_" + p2(d.getHours()) + "h" + p2(d.getMinutes()); }
+const pl = (n, mot) => n + " " + mot + (n > 1 ? "s" : "");
+function msgSauv(t, alerte) { const m = $("sauv-msg"); m.textContent = t || ""; m.classList.toggle("alerte", !!alerte); }
+function avecDelai(p, ms, quoi) { return Promise.race([p, new Promise((ok, ko) => setTimeout(() => ko(new Error(quoi + " : le réseau ne répond pas")), ms))]); }
+function telecharger(nom, contenu) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([contenu], { type: "application/json" })); a.download = nom;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+/* dossier de sauvegarde : File System Access API (Chrome, Edge), mémorisé dans IndexedDB ; sinon téléchargement */
+const fsDispo = () => typeof window.showDirectoryPicker === "function";
+function fsBase() { return new Promise((ok, ko) => { const r = indexedDB.open("courses_fs", 1); r.onupgradeneeded = () => r.result.createObjectStore("h"); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); }); }
+function fsGet() { return fsBase().then((db) => new Promise((ok) => { const q = db.transaction("h").objectStore("h").get("dossier"); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); })).catch(() => null); }
+function fsSet(h) { return fsBase().then((db) => new Promise((ok, ko) => { const t = db.transaction("h", "readwrite"); if (h) t.objectStore("h").put(h, "dossier"); else t.objectStore("h").delete("dossier"); t.oncomplete = ok; t.onerror = () => ko(t.error); })); }
+// à appeler tout de suite après le clic (le navigateur n'accepte de demander l'autorisation que juste après un clic)
+async function preparerDossier() {
+  if (!fsDispo()) return { h: null, err: "" };
+  try {
+    const h = await fsGet(); if (!h) return { h: null, err: "" };
+    const opt = { mode: "readwrite" };
+    let pe = await h.queryPermission(opt); if (pe !== "granted") pe = await h.requestPermission(opt);
+    return pe === "granted" ? { h, err: "" } : { h: null, err: "accès au dossier refusé" };
+  } catch (e) { return { h: null, err: (e && e.message) || "erreur inconnue" }; }
+}
+async function ecrireFichier(dos, nom, txt) {
+  if (dos.h) {
+    try { const w = await (await dos.h.getFileHandle(nom, { create: true })).createWritable(); await w.write(txt); await w.close(); return "dossier « " + dos.h.name + " »"; }
+    catch (e) { dos.err = (e && e.message) || "erreur inconnue"; }
+  }
+  telecharger(nom, txt);
+  return dos.err ? "Téléchargements (dossier inaccessible : " + dos.err + ")" : "Téléchargements";
+}
+// lit toutes les données sur le serveur
+async function lireTout() {
+  const gs = await avecDelai(getDocs(colGroupes()), 20000, "Lecture des listes");
+  const groupes = [];
+  for (const d of gs.docs) {
+    const data = d.data(), g = { id: d.id, legacy: !!data.legacy }, o = { id: d.id, data };
+    if (data.type !== "note") {
+      const a = await avecDelai(getDocs(colArticlesDe(g)), 20000, "Lecture des articles");
+      o.articles = a.docs.map((x) => ({ id: x.id, data: x.data() }));
+      const h = await avecDelai(getDoc(refHistoDe(g)), 20000, "Lecture des suggestions");
+      o.historique = h.exists() ? h.data() : null;
+    }
+    groupes.push(o);
+  }
+  return { application: "COURSES", format: 1, version: VERSION, exporteLe: new Date().toISOString(), groupes };
+}
+function compter(o) {
+  const l = o.groupes.filter((g) => g.data.type !== "note"), n = o.groupes.filter((g) => g.data.type === "note");
+  const art = l.reduce((t, g) => t + (g.articles || []).filter((a) => a.data.type !== "titre").length, 0);
+  const arch = o.groupes.filter((g) => g.data.archive).length;
+  return pl(l.length, "liste") + " (" + pl(art, "article") + "), " + pl(n.length, "note") + (arch ? ", dont " + arch + " aux archives" : "");
+}
+async function sauvegarder(dos, prefixe) {
+  if (!navigator.onLine) throw new Error("pas de réseau");
+  const obj = await lireTout(), nom = prefixe + horodatage() + ".json";
+  const ou = await ecrireFichier(dos, nom, JSON.stringify(obj, null, 1));
+  try { localStorage.setItem(KEY_DERNIERE, new Date().toISOString()); } catch (e) { /* sans gravité */ }
+  return { obj, nom, ou };
+}
+function rendreSauvegarde() {
+  const l = GROUPES.filter((g) => g.type === "liste"), n = GROUPES.filter((g) => g.type === "note"), a = archives().length;
+  $("sauv-contenu").textContent = pl(l.length, "liste") + ", " + pl(n.length, "note") + (a ? ", dont " + a + " aux archives" : "") + ".";
+  let d = null; try { d = localStorage.getItem(KEY_DERNIERE); } catch (e) { d = null; }
+  $("sauv-derniere").textContent = d ? new Date(d).toLocaleString("fr-FR") : "jamais";
+  $("fs-choisir").hidden = !fsDispo();
+  $("fs-aide").textContent = fsDispo() ? "Choisis une fois le dossier (par exemple « COURSES JSON ») : chaque sauvegarde y sera enregistrée directement. Le navigateur peut redemander l'autorisation : accepte." : "Ce navigateur ne permet pas de choisir un dossier : la sauvegarde va dans « Téléchargements ».";
+  fsGet().then((h) => { $("fs-nom").textContent = h ? "« " + h.name + " »" : "aucun (le fichier va dans « Téléchargements »)"; $("fs-oublier").hidden = !h; });
+}
+$("sauv-go").addEventListener("click", async () => {
+  const b = $("sauv-go"); b.disabled = true; msgSauv("Sauvegarde en cours…");
+  try { const dos = await preparerDossier(), r = await sauvegarder(dos, "COURSES_sauvegarde_"); msgSauv("Sauvegarde enregistrée : " + r.nom + " → " + r.ou + ". " + compter(r.obj) + "."); }
+  catch (e) { msgSauv("Sauvegarde impossible : " + e.message + ".", true); }
+  b.disabled = false; rendreSauvegarde();
+});
+$("fs-choisir").addEventListener("click", () => {
+  window.showDirectoryPicker({ id: "courses-sauvegardes", mode: "readwrite" })
+    .then((h) => fsSet(h).then(() => { msgSauv("Dossier de sauvegarde : « " + h.name + " »"); rendreSauvegarde(); }))
+    .catch((e) => { if (e && e.name !== "AbortError") msgSauv("Dossier non retenu : " + e.message, true); });
+});
+$("fs-oublier").addEventListener("click", () => { fsSet(null).then(() => { msgSauv("Dossier retiré : les sauvegardes iront dans « Téléchargements »."); rendreSauvegarde(); }); });
+
+/* restauration : remplace tout, après une sauvegarde automatique de l'état actuel */
+const idOk = (x) => typeof x === "string" && x.length > 0 && x.length <= 700 && !x.includes("/") && x !== "." && x !== ".." && !/^__.*__$/.test(x);
+const objet = (x) => !!x && typeof x === "object" && !Array.isArray(x);
+function validerSauvegarde(o) {
+  if (!objet(o) || o.application !== "COURSES" || !Array.isArray(o.groupes)) throw new Error("ce fichier n'est pas une sauvegarde COURSES");
+  const vus = new Set();
+  o.groupes.forEach((g) => {
+    if (!objet(g) || !idOk(g.id) || !objet(g.data) || vus.has(g.id)) throw new Error("liste ou note mal formée dans le fichier");
+    vus.add(g.id);
+    if (g.articles !== undefined && (!Array.isArray(g.articles) || g.articles.some((a) => !objet(a) || !idOk(a.id) || !objet(a.data)))) throw new Error("article mal formé dans « " + (g.data.nom || g.id) + " »");
+    if (g.historique != null && !objet(g.historique)) throw new Error("suggestions mal formées dans « " + (g.data.nom || g.id) + " »");
+  });
+  return o;
+}
+// liste de toutes les écritures qui décrivent une sauvegarde : [ référence, données ]
+function ecritures(o) {
+  const l = [];
+  o.groupes.forEach((x) => {
+    const g = { id: x.id, legacy: !!x.data.legacy };
+    l.push([refGroupe(x.id), x.data]);
+    (x.articles || []).forEach((a) => l.push([doc(colArticlesDe(g), a.id), a.data]));
+    if (x.historique) l.push([refHistoDe(g), x.historique]);
+  });
+  return l;
+}
+let A_RESTAURER = null;
+$("rest-choisir").addEventListener("click", () => { $("rest-confirme").hidden = true; A_RESTAURER = null; $("file-json").click(); });
+$("file-json").addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+  f.text().then((t) => {
+    let o; try { o = validerSauvegarde(JSON.parse(t)); } catch (err) { msgSauv("Restauration impossible : " + err.message + ".", true); return; }
+    A_RESTAURER = o;
+    const date = o.exporteLe ? new Date(o.exporteLe).toLocaleString("fr-FR") : "date inconnue";
+    $("rest-txt").textContent = "Restaurer « " + f.name + " » (" + date + ") : " + compter(o) + " ? Toutes les données actuelles seront remplacées.";
+    $("rest-confirme").hidden = false; msgSauv(""); $("rest-non").focus();
+  }).catch(() => msgSauv("Lecture du fichier impossible.", true));
+});
+$("rest-non").addEventListener("click", () => { $("rest-confirme").hidden = true; A_RESTAURER = null; });
+$("rest-oui").addEventListener("click", async () => {
+  const o = A_RESTAURER; if (!o) return;
+  $("rest-confirme").hidden = true; A_RESTAURER = null;
+  const btn = $("rest-choisir"); btn.disabled = true;
+  try {
+    msgSauv("Sauvegarde de l'état actuel…");
+    const avant = await sauvegarder(await preparerDossier(), "COURSES_avant_restauration_");
+    msgSauv("Restauration en cours…");
+    const nouv = ecritures(o), garder = new Set(nouv.map(([r]) => r.path));
+    const ops = ecritures(avant.obj).filter(([r]) => !garder.has(r.path)).map(([r]) => [r, null]).concat(nouv);
+    for (let i = 0; i < ops.length; i += 400) {           // au plus 500 écritures par lot (limite Firestore)
+      const b = writeBatch(db);
+      ops.slice(i, i + 400).forEach(([r, d]) => { if (d) b.set(r, d); else b.delete(r); });
+      await avecDelai(b.commit(), 30000, "Enregistrement");
+    }
+    msgSauv("Sauvegarde restaurée : " + compter(o) + ". L'état d'avant est dans " + avant.nom + " (" + avant.ou + ").");
+    rendreSauvegarde(); rendreTiroir();
+  } catch (e) { msgSauv("Restauration interrompue : " + e.message + ". Si une partie a été remplacée, restaure le fichier « COURSES_avant_restauration_… ».", true); }
+  btn.disabled = false;
+});
+
 /* ---------- ouverture sans réseau : l'appli est gardée sur l'appareil (service worker) ---------- */
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   navigator.serviceWorker.register("sw.js").catch((e) => console.warn("Mode hors ligne indisponible :", e));
