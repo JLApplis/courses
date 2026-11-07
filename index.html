@@ -275,9 +275,9 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
 */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, getDocs, getDocsFromCache } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-const VERSION = "1.11";
+const VERSION = "1.12";
 
 /* ===== CONFIGURATION FIREBASE (projet courses-e9163) ===== */
 const firebaseConfig = {
@@ -413,10 +413,12 @@ function ouvrirListe(gid) {
     suggerer();
   }, () => { /* suggestions indisponibles : la liste fonctionne quand même */ }));
 }
-async function creerGroupe(type) {
-  const ordre = Math.max(0, ...GROUPES.map((g) => g.ordre || 0)) + 1;
-  const r = await addDoc(colGroupes(), { nom: type === "note" ? "" : "Nouvelle liste", type, archive: false, ordre, texte: "", couleur: type === "note" ? COULEURS[0] : "", modifieLe: Date.now() });
-  GROUPES.push({ id: r.id, nom: type === "note" ? "" : "Nouvelle liste", type, archive: false, ordre, texte: "", couleur: COULEURS[0], modifieLe: Date.now() });
+function creerGroupe(type) {
+  // identifiant créé tout de suite, sans attendre le serveur : marche aussi hors ligne
+  const ordre = Math.max(0, ...GROUPES.map((g) => g.ordre || 0)) + 1, r = doc(colGroupes());
+  const data = { nom: type === "note" ? "" : "Nouvelle liste", type, archive: false, ordre, texte: "", couleur: type === "note" ? COULEURS[0] : "", modifieLe: Date.now() };
+  setDoc(r, data).catch(erreur);
+  if (!groupe(r.id)) GROUPES.push({ id: r.id, legacy: false, ...data });   // pas de doublon si l'écouteur l'a déjà reçue
   if (type === "note") { montrer({ type: "note", id: r.id }); setTimeout(() => $("note-titre").focus(), 50); }
   else { montrer({ type: "liste", id: r.id }); ouvrirActions(true); }
 }
@@ -426,18 +428,22 @@ function archiverGroupe(gid, oui) {
 }
 async function supprimerGroupe(gid) {
   const g = groupe(gid); if (!g) return;
+  // les suppressions sont lancées sans attendre chacune le serveur : hors ligne, tout est fait sur l'appareil
+  // et envoyé au retour du réseau
+  deleteDoc(refGroupe(gid)).catch(erreur);
   if (g.type === "liste") {
-    const snap = await getDocs(colArticlesDe(g));
-    for (const d of snap.docs) await deleteDoc(d.ref);
-    await deleteDoc(refHistoDe(g)).catch(() => {});
+    deleteDoc(refHistoDe(g)).catch(() => {});
+    const vus = new Set(), effacer = (snap) => snap.docs.forEach((d) => { if (!vus.has(d.id)) { vus.add(d.id); deleteDoc(d.ref).catch(erreur); } });
+    effacer(await getDocsFromCache(colArticlesDe(g)).catch(() => ({ docs: [] })));   // articles déjà sur l'appareil : tout de suite
+    effacer(await getDocs(colArticlesDe(g)));                                          // ceux que seul le serveur connaît
   }
-  await deleteDoc(refGroupe(gid));
 }
 /* renommer / archiver la liste affichée */
 function ouvrirActions(o) {
   const p = $("pop-actions"); p.hidden = !o; if (!o || !VUE) return;
   const g = groupe(VUE.id); $("pop-nom").value = g ? g.nom : ""; $("pop-nom").focus(); $("pop-nom").select();
   $("pop-supprimer").hidden = !g || g.id === "courses";   // la liste principale est protégée
+  $("pop-archiver").hidden = !g || g.id === "courses";    // … ni supprimée, ni archivée
   $("pop-confirme").hidden = true;
 }
 function validerNom() {
@@ -499,15 +505,15 @@ $("btn-menu").addEventListener("click", () => ouvrirTiroir(true));
 $("fermer-tiroir").addEventListener("click", () => ouvrirTiroir(false));
 $("voile").addEventListener("click", () => ouvrirTiroir(false));
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("tiroir").hidden) ouvrirTiroir(false); });
-$("nouvelle-liste").addEventListener("click", () => creerGroupe("liste").catch(erreur));
-$("nouvelle-note").addEventListener("click", () => creerGroupe("note").catch(erreur));
-$("nouvelle-note-2").addEventListener("click", () => creerGroupe("note").catch(erreur));
+$("nouvelle-liste").addEventListener("click", () => creerGroupe("liste"));
+$("nouvelle-note").addEventListener("click", () => creerGroupe("note"));
+$("nouvelle-note-2").addEventListener("click", () => creerGroupe("note"));
 $("aller-notes").addEventListener("click", () => montrer({ type: "notes" }));
 $("aller-archives").addEventListener("click", () => montrer({ type: "archives" }));
 $("btn-actions").addEventListener("click", () => ouvrirActions($("pop-actions").hidden));
 $("pop-ok").addEventListener("click", validerNom);
 $("pop-nom").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); validerNom(); } if (e.key === "Escape") ouvrirActions(false); });
-$("pop-archiver").addEventListener("click", () => { const id = VUE.id; archiverGroupe(id, true); montrer({ type: "liste", id: (listesActives()[0] || {}).id || "courses" }); });
+$("pop-archiver").addEventListener("click", () => { const id = VUE.id; if (id === "courses") return; archiverGroupe(id, true); montrer({ type: "liste", id: (listesActives()[0] || {}).id || "courses" }); });
 $("pop-supprimer").addEventListener("click", () => {
   const g = groupe(VUE.id); if (!g || g.id === "courses") return;
   $("pop-confirme-txt").textContent = "Supprimer définitivement « " + (g.nom || "Sans nom") + " » et tous ses articles ?";
@@ -618,8 +624,8 @@ function ajouter(texte, ordre, depuisInsertion) {
 }
 
 /* ---------- collage de plusieurs lignes (ex. ingrédients copiés depuis ASSPER) ---------- */
-const UNITES = "kg|g|gr|grammes?|mg|l|litres?|cl|dl|ml|c\\.?\\s?à\\s?(?:soupe|café|s|c)\\.?|cuill(?:è|e)res?\\s+à\\s+(?:soupe|café)|cs|cc|tasses?|verres?|pincées?|brins?|branches?|bottes?|gousses?|tranches?|feuilles?|morceaux?|boîtes?|sachets?|pots?|paquets?|noix|filets?|zestes?|poignées?|bouquets?|briques?|bouteilles?";
-const RE_QTE = new RegExp("^(?:environ\\s+|quelques\\s+)?[\\d\\s.,/½¼¾⅓⅔-]*\\d[\\d\\s.,/½¼¾⅓⅔]*\\s*(?:(?:" + UNITES + ")(?=[\\s.']|$)\\.?)?\\s*", "i");
+const UNITES = "kg|g|gr|grammes?|mg|l|litres?|cl|dl|ml|c\\.?\\s?à\\s?(?:soupe|café|s|c)\\.?|cuill(?:è|e)res?\\s+à\\s+(?:soupe|café)|cs|cc|tasses?|verres?|pincées?|brins?|branches?|bottes?|gousses?|tranches?|feuilles?|morceaux?|boîtes?|sachets?|pots?|paquets?|noix(?=\\s+de\\s+beurre)|filets?|zestes?|poignées?|bouquets?|briques?|bouteilles?";
+const RE_QTE = new RegExp("^(?:environ\\s+|quelques\\s+)?[\\d\\s.,/½¼¾⅓⅔-]*[\\d½¼¾⅓⅔][\\d\\s.,/½¼¾⅓⅔]*\\s*(?:(?:" + UNITES + ")(?=[\\s.']|$)\\.?)?\\s*", "i");
 // « 200 g de beurre » → « Beurre » ; « 4 osso bucco (1,2 kg) » → « Osso bucco »
 function produit(ligne) {
   let s = String(ligne || "").replace(/^\s*[-•*·–—]\s*/, "").replace(/^\d+[.)]\s+(?=\D)/, "").replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
@@ -686,9 +692,9 @@ function ajouterTitre() {
   if (!UID || !G) return;
   const texte = $("nouveau").value.trim() || "Magasin";
   $("nouveau").value = ""; suggerer();
-  addDoc(colArticles(), { texte, type: "titre", coche: false, ordre: Date.now() }).then((r) => {
-    setTimeout(() => { const t = $("txt-" + r.id); if (t) { t.focus(); t.select(); } }, 150);
-  }).catch(erreur);
+  const r = doc(colArticles());   // identifiant connu tout de suite : le focus marche aussi hors ligne
+  setDoc(r, { texte, type: "titre", coche: false, ordre: Date.now() }).catch(erreur);
+  setTimeout(() => { const t = $("txt-" + r.id); if (t) { t.focus(); t.select(); } }, 150);
 }
 /* ---------- déplacer : flèches et glisser ---------- */
 // groupe = un magasin et ses articles (jusqu'au magasin suivant) ; un article seul = groupe d'un élément
