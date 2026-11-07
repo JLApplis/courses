@@ -178,6 +178,10 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
 .btns { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 8px; }
 .sauv-msg { min-height: 20px; font-size: 14px; font-weight: 600; color: var(--leaf); margin-top: 8px; }
 .sauv-msg.alerte { color: var(--tomato); }
+.btn-sauv { position: relative; font-size: 19px; }
+.pastille { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--tomato); color: #fff; font: 700 11px/20px var(--font); box-shadow: 0 0 0 2px var(--leaf); }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 30; width: max-content; max-width: min(520px, calc(100vw - 32px)); background: #2B2A24; color: #fff; font: 600 14px/1.4 var(--font); padding: 10px 16px; border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+.toast.alerte { background: var(--tomato); }
 .version { text-align: center; color: var(--muted); font-size: 12px; padding-top: 26px; }
 </style>
 </head>
@@ -220,6 +224,7 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
     <button class="btn-menu" id="btn-menu" type="button" aria-label="Ouvrir le menu">☰</button>
     <h1 id="titre-vue">Courses</h1>
     <span class="etat" id="etat">Chargement…</span>
+    <button class="btn-menu btn-sauv" id="btn-sauv" type="button" title="Sauvegarder" aria-label="Sauvegarder">💾<span class="pastille" id="pastille-sauv" hidden></span></button>
     <button class="btn-menu" id="btn-actions" type="button" aria-label="Renommer ou archiver" hidden>⋮</button>
   </header>
   <div class="pop" id="pop-actions" hidden>
@@ -294,6 +299,7 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
 </div>
 </div>
 
+<div class="toast" id="toast" role="status" hidden></div>
 <script type="module">
 /*
     Courses — liste de courses (JLApplis)
@@ -301,9 +307,19 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
 */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, getDocs, getDocsFromCache, getDoc, writeBatch } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, collection, doc, addDoc as fbAddDoc, updateDoc as fbUpdateDoc, deleteDoc as fbDeleteDoc, setDoc as fbSetDoc, onSnapshot, getDocs, getDocsFromCache, getDoc, writeBatch } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-const VERSION = "1.13";
+const VERSION = "1.14";
+
+/* chaque écriture compte comme une modification non sauvegardée (sur cet appareil) */
+const KEY_MODIFS = "courses_modifs";
+function nbModifs() { try { return Number(localStorage.getItem(KEY_MODIFS)) || 0; } catch (e) { return 0; } }
+function fixerModifs(n) { try { localStorage.setItem(KEY_MODIFS, String(Math.max(0, n))); } catch (e) { /* sans gravité */ } majBoutonSauv(); }
+function marquerModif() { fixerModifs(nbModifs() + 1); }
+const addDoc = (...a) => { marquerModif(); return fbAddDoc(...a); };
+const updateDoc = (...a) => { marquerModif(); return fbUpdateDoc(...a); };
+const deleteDoc = (...a) => { marquerModif(); return fbDeleteDoc(...a); };
+const setDoc = (...a) => { marquerModif(); return fbSetDoc(...a); };
 
 /* ===== CONFIGURATION FIREBASE (projet courses-e9163) ===== */
 const firebaseConfig = {
@@ -887,26 +903,48 @@ function compter(o) {
 }
 async function sauvegarder(dos, prefixe) {
   if (!navigator.onLine) throw new Error("pas de réseau");
+  const n0 = nbModifs();
   const obj = await lireTout(), nom = prefixe + horodatage() + ".json";
   const ou = await ecrireFichier(dos, nom, JSON.stringify(obj, null, 1));
   try { localStorage.setItem(KEY_DERNIERE, new Date().toISOString()); } catch (e) { /* sans gravité */ }
+  fixerModifs(nbModifs() - n0);
   return { obj, nom, ou };
 }
 function rendreSauvegarde() {
   const l = GROUPES.filter((g) => g.type === "liste"), n = GROUPES.filter((g) => g.type === "note"), a = archives().length;
   $("sauv-contenu").textContent = pl(l.length, "liste") + ", " + pl(n.length, "note") + (a ? ", dont " + a + " aux archives" : "") + ".";
   let d = null; try { d = localStorage.getItem(KEY_DERNIERE); } catch (e) { d = null; }
-  $("sauv-derniere").textContent = d ? new Date(d).toLocaleString("fr-FR") : "jamais";
+  const m = nbModifs();
+  $("sauv-derniere").textContent = (d ? new Date(d).toLocaleString("fr-FR") : "jamais") + (m ? " — " + pl(m, "modification") + " depuis" : "");
   $("fs-choisir").hidden = !fsDispo();
   $("fs-aide").textContent = fsDispo() ? "Choisis une fois le dossier (par exemple « COURSES JSON ») : chaque sauvegarde y sera enregistrée directement. Le navigateur peut redemander l'autorisation : accepte." : "Ce navigateur ne permet pas de choisir un dossier : la sauvegarde va dans « Téléchargements ».";
   fsGet().then((h) => { $("fs-nom").textContent = h ? "« " + h.name + " »" : "aucun (le fichier va dans « Téléchargements »)"; $("fs-oublier").hidden = !h; });
 }
-$("sauv-go").addEventListener("click", async () => {
-  const b = $("sauv-go"); b.disabled = true; msgSauv("Sauvegarde en cours…");
-  try { const dos = await preparerDossier(), r = await sauvegarder(dos, "COURSES_sauvegarde_"); msgSauv("Sauvegarde enregistrée : " + r.nom + " → " + r.ou + ". " + compter(r.obj) + "."); }
-  catch (e) { msgSauv("Sauvegarde impossible : " + e.message + ".", true); }
-  b.disabled = false; rendreSauvegarde();
-});
+let SAUV_EN_COURS = false;
+async function sauvegarderMaintenant(afficher) {
+  if (SAUV_EN_COURS) return; SAUV_EN_COURS = true; $("sauv-go").disabled = true; $("btn-sauv").disabled = true;
+  afficher("Sauvegarde en cours…");
+  try { const dos = await preparerDossier(), r = await sauvegarder(dos, "COURSES_sauvegarde_"); afficher("Sauvegarde enregistrée : " + r.nom + " → " + r.ou + ". " + compter(r.obj) + "."); }
+  catch (e) { afficher("Sauvegarde impossible : " + e.message + ".", true); }
+  SAUV_EN_COURS = false; $("sauv-go").disabled = false; $("btn-sauv").disabled = false;
+  if (VUE && VUE.type === "sauvegarde") rendreSauvegarde();
+}
+let minuteurToast = null;
+function toast(t, alerte) {
+  const e = $("toast"); e.textContent = t; e.classList.toggle("alerte", !!alerte); e.hidden = false;
+  clearTimeout(minuteurToast); minuteurToast = setTimeout(() => { e.hidden = true; }, alerte ? 7000 : 4000);
+}
+function majBoutonSauv() {
+  const n = nbModifs(), b = document.getElementById("btn-sauv"), pa = document.getElementById("pastille-sauv"); if (!b) return;
+  pa.hidden = !n; pa.textContent = n > 99 ? "99+" : String(n);
+  const t = n ? "Sauvegarder (" + pl(n, "modification") + " non sauvegardée" + (n > 1 ? "s" : "") + ")" : "Sauvegarder (rien de nouveau)";
+  b.title = t; b.setAttribute("aria-label", t);
+}
+$("sauv-go").addEventListener("click", () => sauvegarderMaintenant(msgSauv));
+$("btn-sauv").addEventListener("click", () => sauvegarderMaintenant(toast));
+majBoutonSauv();
+// alerte du navigateur si on ferme avec des modifications non sauvegardées (texte imposé par le navigateur)
+window.addEventListener("beforeunload", (e) => { if (nbModifs() > 0) { e.preventDefault(); e.returnValue = true; } });
 $("fs-choisir").addEventListener("click", () => {
   window.showDirectoryPicker({ id: "courses-sauvegardes", mode: "readwrite" })
     .then((h) => fsSet(h).then(() => { msgSauv("Dossier de sauvegarde : « " + h.name + " »"); rendreSauvegarde(); }))
@@ -967,6 +1005,7 @@ $("rest-oui").addEventListener("click", async () => {
       ops.slice(i, i + 400).forEach(([r, d]) => { if (d) b.set(r, d); else b.delete(r); });
       await avecDelai(b.commit(), 30000, "Enregistrement");
     }
+    fixerModifs(0);   // les données sont maintenant celles du fichier
     msgSauv("Sauvegarde restaurée : " + compter(o) + ". L'état d'avant est dans " + avant.nom + " (" + avant.ou + ").");
     rendreSauvegarde(); rendreTiroir();
   } catch (e) { msgSauv("Restauration interrompue : " + e.message + ". Si une partie a été remplacée, restaure le fichier « COURSES_avant_restauration_… ».", true); }
