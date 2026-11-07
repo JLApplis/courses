@@ -164,6 +164,11 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
 .arch .rest { background: var(--leaf-soft); color: #1F5C39; }
 .arch .suppr-def { background: #FBE3DD; color: #A33A25; }
 .arch .oui { background: var(--tomato); color: #fff; }
+.deco-confirme { margin-top: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 8px; color: var(--fg); font-size: 14px; line-height: 1.4; }
+.deco-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.deco-confirme button { border: none; border-radius: 10px; padding: 7px 12px; font: 600 14px var(--font); cursor: pointer; }
+.deco-confirme .oui { background: var(--tomato); color: #fff; }
+.deco-confirme .non { background: #F3ECDD; color: var(--fg); }
 .version { text-align: center; color: var(--muted); font-size: 12px; padding-top: 26px; }
 </style>
 </head>
@@ -196,7 +201,8 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
   <button class="tiroir-item ajout-item" id="nouvelle-note" type="button"><span class="ic">＋</span>Nouvelle note</button>
   <div class="tiroir-sep"></div>
   <button class="tiroir-item" id="aller-archives" type="button"><span class="ic">🗄️</span>Archives<span class="compte" id="nb-archives"></span></button>
-  <div class="tiroir-pied">Courses <span id="version"></span> — JLApplis<br><button class="deco" id="deco" type="button">Se déconnecter</button></div>
+  <div class="tiroir-pied">Courses <span id="version"></span> — JLApplis<br><button class="deco" id="deco" type="button">Se déconnecter</button>
+    <div class="deco-confirme" id="deco-confirme" hidden><span>Se déconnecter ? Pour te reconnecter, il faudra du réseau.</span><span class="deco-btns"><button class="non" id="deco-non" type="button">Annuler</button><button class="oui" id="deco-oui" type="button">Se déconnecter</button></span></div></div>
 </nav>
 
 <div class="page">
@@ -269,7 +275,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-const VERSION = "1.8";
+const VERSION = "1.9";
 
 /* ===== CONFIGURATION FIREBASE (projet courses-e9163) ===== */
 const firebaseConfig = {
@@ -310,7 +316,7 @@ $("ecran-connexion").addEventListener("submit", (e) => {
   e.preventDefault(); const m = $("msg-connexion"); m.className = "msg"; m.textContent = "Connexion…";
   signInWithEmailAndPassword(auth, $("email").value.trim(), $("mdp").value)
     .then(() => { m.textContent = ""; })
-    .catch((err) => { m.textContent = /invalid-credential|wrong-password|user-not-found|invalid-email/.test(err.code) ? "E-mail ou mot de passe incorrect." : "Connexion impossible (" + err.code + ")."; });
+    .catch((err) => { m.textContent = (!navigator.onLine || err.code === "auth/network-request-failed") ? "Pas de réseau : la connexion a besoin d'internet. Réessaie dès que le réseau revient." : /invalid-credential|wrong-password|user-not-found|invalid-email/.test(err.code) ? "E-mail ou mot de passe incorrect." : "Connexion impossible (" + err.code + ")."; });
 });
 $("oubli").addEventListener("click", () => {
   const m = $("msg-connexion"), mail = $("email").value.trim();
@@ -318,7 +324,9 @@ $("oubli").addEventListener("click", () => {
   sendPasswordResetEmail(auth, mail).then(() => { m.className = "msg ok"; m.textContent = "E-mail de réinitialisation envoyé."; })
     .catch((err) => { m.className = "msg"; m.textContent = "Envoi impossible (" + err.code + ")."; });
 });
-$("deco").addEventListener("click", () => signOut(auth));
+$("deco").addEventListener("click", () => { $("deco-confirme").hidden = false; $("deco").hidden = true; $("deco-non").focus(); });
+$("deco-non").addEventListener("click", () => { $("deco-confirme").hidden = true; $("deco").hidden = false; });
+$("deco-oui").addEventListener("click", () => { $("deco-confirme").hidden = true; $("deco").hidden = false; signOut(auth); });
 
 onAuthStateChanged(auth, (u) => {
   desabonner.forEach((f) => f()); desabonner = []; desabListe.forEach((f) => f()); desabListe = [];
