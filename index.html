@@ -168,6 +168,18 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
 .deco-btns { display: flex; gap: 8px; justify-content: flex-end; }
 .deco-confirme button { border: none; border-radius: 10px; padding: 7px 12px; font: 600 14px var(--font); cursor: pointer; }
 .deco-confirme .oui { background: var(--tomato); color: #fff; }
+/* import depuis Keep */
+.imp-intro { margin: 0; padding: 8px 0 4px; font-size: 15px; line-height: 1.5; }
+.imp-intro ol { margin: 6px 0; padding-left: 22px; }
+.imp-choix { display: inline-block; margin: 8px 0 6px; border: none; background: var(--leaf); color: #fff; font: 600 15px var(--font); padding: 9px 16px; border-radius: 10px; cursor: pointer; }
+.imp-ligne { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.imp-ligne:last-child { border-bottom: none; }
+.imp-ligne input { margin-top: 3px; width: 20px; height: 20px; accent-color: var(--leaf); flex: none; }
+.imp-ligne .nom { font-weight: 600; }
+.imp-ligne small { display: block; color: var(--muted); font-size: 13px; }
+.imp-ligne.ignore { color: var(--muted); }
+.imp-msg { padding: 10px 0 4px; font-size: 15px; }
+.imp-msg.ok { color: var(--leaf); font-weight: 600; }
 .deco-confirme .non { background: #F3ECDD; color: var(--fg); }
 .version { text-align: center; color: var(--muted); font-size: 12px; padding-top: 26px; }
 </style>
@@ -201,6 +213,7 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
   <button class="tiroir-item ajout-item" id="nouvelle-note" type="button"><span class="ic">＋</span>Nouvelle note</button>
   <div class="tiroir-sep"></div>
   <button class="tiroir-item" id="aller-archives" type="button"><span class="ic">🗄️</span>Archives<span class="compte" id="nb-archives"></span></button>
+  <button class="tiroir-item" id="aller-import" type="button"><span class="ic">⬇️</span>Importer depuis Keep</button>
   <div class="tiroir-pied">Courses <span id="version"></span> — JLApplis<br><button class="deco" id="deco" type="button">Se déconnecter</button>
     <div class="deco-confirme" id="deco-confirme" hidden><span>Se déconnecter ? Pour te reconnecter, il faudra du réseau.</span><span class="deco-btns"><button class="non" id="deco-non" type="button">Annuler</button><button class="oui" id="deco-oui" type="button">Se déconnecter</button></span></div></div>
 </nav>
@@ -259,6 +272,18 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
     <div class="confirme" id="note-confirme" hidden><span>Supprimer définitivement cette note ?</span><button class="non" id="note-non" type="button">Annuler</button><button class="oui" id="note-oui" type="button">Supprimer</button></div>
   </section>
 
+  <section id="vue-import" hidden>
+    <div class="fiche">
+      <div class="imp-intro">Récupère tes notes Google Keep exportées avec Google Takeout.
+        <ol><li>Décompresse le fichier .zip de Takeout.</li><li>Ouvre le dossier <b>Takeout\Keep</b>.</li><li>Choisis tous les fichiers <b>.json</b> (Ctrl+A).</li></ol></div>
+      <button class="imp-choix" id="imp-choisir" type="button">Choisir les fichiers .json</button>
+      <input type="file" id="imp-fichiers" accept=".json,application/json" multiple hidden>
+      <div id="imp-apercu"></div>
+      <div class="imp-msg" id="imp-msg" role="status"></div>
+      <div class="pop-btns" id="imp-btns" hidden><span></span><button class="pop-ok" id="imp-go" type="button">Importer</button></div>
+    </div>
+  </section>
+
   <section id="vue-archives" hidden>
     <div id="liste-archives"></div>
     <div class="vide" id="archives-vide" hidden>Rien dans les archives.</div>
@@ -273,9 +298,9 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
 */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-const VERSION = "1.9";
+const VERSION = "1.10";
 
 /* ===== CONFIGURATION FIREBASE (projet courses-e9163) ===== */
 const firebaseConfig = {
@@ -337,7 +362,7 @@ onAuthStateChanged(auth, (u) => {
   etat("Chargement…");
   desabonner.push(onSnapshot(colGroupes(), (snap) => {
     GROUPES = snap.docs.map((d) => { const x = d.data(); return { id: d.id, nom: String(x.nom || ""), type: x.type === "note" ? "note" : "liste", archive: !!x.archive,
-      ordre: x.ordre || 0, legacy: !!x.legacy, texte: String(x.texte || ""), couleur: x.couleur || "", modifieLe: x.modifieLe || 0 }; });
+      ordre: x.ordre || 0, legacy: !!x.legacy, texte: String(x.texte || ""), couleur: x.couleur || "", modifieLe: x.modifieLe || 0, keep: String(x.keep || "") }; });
     if (!snap.metadata.fromCache && !GROUPES.some((g) => g.id === "courses")) {
       // première ouverture : la liste existante devient « Liste de courses »
       setDoc(refGroupe("courses"), { nom: "Liste de courses", type: "liste", legacy: true, archive: false, ordre: 0, modifieLe: Date.now() }, { merge: true }).catch(erreur);
@@ -359,7 +384,7 @@ const archives = () => GROUPES.filter((g) => g.archive).sort((a, b) => b.modifie
 const groupe = (id) => GROUPES.find((g) => g.id === id);
 function vueValide(v) {
   if (!v || !v.type) return false;
-  if (v.type === "notes" || v.type === "archives") return true;
+  if (v.type === "notes" || v.type === "archives" || v.type === "import") return true;
   const g = groupe(v.id); return !!g && !g.archive && g.type === (v.type === "note" ? "note" : "liste");
 }
 function ouvrirTiroir(o) { $("tiroir").hidden = !o; $("voile").hidden = !o; if (o) { const b = $("tiroir").querySelector(".tiroir-item.actif") || $("fermer-tiroir"); b.focus(); } }
@@ -372,13 +397,14 @@ function rendreTiroir() {
   }));
   $("aller-notes").classList.toggle("actif", !!VUE && (VUE.type === "notes" || VUE.type === "note"));
   $("aller-archives").classList.toggle("actif", !!VUE && VUE.type === "archives");
+  $("aller-import").classList.toggle("actif", !!VUE && VUE.type === "import");
   $("nb-notes").textContent = notesActives().length || ""; $("nb-archives").textContent = archives().length || "";
 }
 function montrer(v) {
   if (VUE && VUE.type === "note") enregistrerNote(true);
   VUE = v; try { localStorage.setItem("courses_vue", JSON.stringify(v)); } catch (e) { /* sans gravité */ }
   ouvrirTiroir(false); $("pop-actions").hidden = true;
-  ["liste", "notes", "note", "archives"].forEach((t) => { $("vue-" + t).hidden = t !== v.type; });
+  ["liste", "notes", "note", "archives", "import"].forEach((t) => { $("vue-" + t).hidden = t !== v.type; });
   if (v.type !== "liste") { desabListe.forEach((f) => f()); desabListe = []; G = null; fermerInsertion(); }
   if (v.type === "liste") ouvrirListe(v.id);
   rafraichirVue(); rendreTiroir(); window.scrollTo(0, 0);
@@ -386,11 +412,12 @@ function montrer(v) {
 function rafraichirVue() {
   const v = VUE; if (!v) return;
   const g = v.id ? groupe(v.id) : null;
-  $("titre-vue").textContent = v.type === "notes" ? "Notes" : v.type === "archives" ? "Archives" : (g ? (g.nom || (g.type === "note" ? "Note" : "Sans nom")) : "");
+  $("titre-vue").textContent = v.type === "notes" ? "Notes" : v.type === "archives" ? "Archives" : v.type === "import" ? "Import Keep" : (g ? (g.nom || (g.type === "note" ? "Note" : "Sans nom")) : "");
   $("btn-actions").hidden = v.type !== "liste";
   $("etat").hidden = v.type !== "liste";
   if (v.type === "notes") rendreNotes();
   if (v.type === "archives") rendreArchives();
+  if (v.type === "import" && !IMP) viderImport();
   if (v.type === "note" && g && document.activeElement !== $("note-titre") && document.activeElement !== $("note-texte") && !NOTE_SALE) chargerNote(g);
 }
 function ouvrirListe(gid) {
@@ -500,6 +527,7 @@ $("nouvelle-note").addEventListener("click", () => creerGroupe("note").catch(err
 $("nouvelle-note-2").addEventListener("click", () => creerGroupe("note").catch(erreur));
 $("aller-notes").addEventListener("click", () => montrer({ type: "notes" }));
 $("aller-archives").addEventListener("click", () => montrer({ type: "archives" }));
+$("aller-import").addEventListener("click", () => { IMP = null; montrer({ type: "import" }); });
 $("btn-actions").addEventListener("click", () => ouvrirActions($("pop-actions").hidden));
 $("pop-ok").addEventListener("click", validerNom);
 $("pop-nom").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); validerNom(); } if (e.key === "Escape") ouvrirActions(false); });
@@ -521,6 +549,99 @@ $("note-oui").addEventListener("click", () => {
 $("note-archiver").addEventListener("click", () => { enregistrerNote(true); archiverGroupe(VUE.id, true); montrer({ type: "notes" }); });
 window.addEventListener("pagehide", () => enregistrerNote(true));
 document.addEventListener("visibilitychange", () => { if (document.hidden) enregistrerNote(true); });
+
+/* ---------- import depuis Google Keep (fichiers .json de Google Takeout) ---------- */
+// - la liste Keep « COURSES » : ses articles non cochés vont dans « Liste de courses », tous ses produits dans les suggestions
+// - les autres listes et notes : recréées (archivées dans Keep → Archives) ; corbeille de Keep et notes sans texte (photo seule) ignorées
+// - lignes de tirets et lignes vides supprimées ; une note déjà importée n'est pas recréée
+let IMP = null;
+const KEEP_COULEURS = { DEFAULT: 0, YELLOW: 0, GREEN: 1, TEAL: 1, RED: 2, ORANGE: 2, PINK: 2, BROWN: 2, BLUE: 3, CERULEAN: 3, PURPLE: 4, GRAY: 5, WHITE: 5 };
+const estSeparateur = (t) => !String(t || "").trim() || /^[\s\-_—–=.*~·•]+$/.test(t);
+function viderImport() { $("imp-apercu").replaceChildren(); $("imp-msg").textContent = ""; $("imp-msg").className = "imp-msg"; $("imp-btns").hidden = true; $("imp-fichiers").value = ""; }
+function lireKeep(nomFichier, d) {
+  const titre = String(d.title || "").trim(), cleKeep = String(d.createdTimestampUsec || "") + "|" + titre;
+  const liste = Array.isArray(d.listContent) ? d.listContent.map((x) => ({ texte: String(x.text || "").trim(), coche: !!x.isChecked })).filter((x) => !estSeparateur(x.texte)) : null;
+  const texte = String(d.textContent || "").replace(/\s+$/, "");
+  const n = { fichier: nomFichier, titre, cleKeep, liste, texte, archive: !!d.isArchived, modifieLe: Math.round((Number(d.userEditedTimestampUsec) || 0) / 1000) || Date.now(),
+    couleur: COULEURS[KEEP_COULEURS[d.color] || 0], action: "", detail: "", coche: true };
+  if (d.isTrashed) { n.action = "ignorer"; n.detail = "dans la corbeille de Keep : ignorée"; }
+  else if (!liste && !texte.trim()) { n.action = "ignorer"; n.detail = (d.attachments && d.attachments.length ? "photo seule" : "vide") + " : ignorée"; }
+  else if (GROUPES.some((g) => g.keep && g.keep === cleKeep)) { n.action = "ignorer"; n.detail = "déjà importée"; }
+  else if (liste && !n.archive && norm(titre) === "courses") {
+    const aFaire = liste.filter((x) => !x.coche), produits = new Set(liste.map((x) => cle(x.texte)));
+    n.action = "courses"; n.detail = aFaire.length + " article" + (aFaire.length > 1 ? "s" : "") + " à acheter → « Liste de courses », " + produits.size + " produits → suggestions";
+  } else {
+    n.action = liste ? "liste" : "note";
+    n.detail = (liste ? "liste de " + liste.length + " élément" + (liste.length > 1 ? "s" : "") : "note") + (n.archive ? " → Archives" : " → menu");
+  }
+  return n;
+}
+async function choisirFichiersKeep(files) {
+  viderImport();
+  const notes = [], erreurs = [];
+  for (const f of files) {
+    if (!/\.json$/i.test(f.name)) continue;
+    try { const d = JSON.parse(await f.text()); if (d && typeof d === "object" && ("listContent" in d || "textContent" in d)) notes.push(lireKeep(f.name, d)); else erreurs.push(f.name); }
+    catch (e) { erreurs.push(f.name); }
+  }
+  notes.sort((a, b) => (a.action === "ignorer") - (b.action === "ignorer") || (b.action === "courses") - (a.action === "courses") || a.titre.localeCompare(b.titre));
+  IMP = notes;
+  $("imp-apercu").replaceChildren(...notes.map((n) => {
+    const l = document.createElement("label"); l.className = "imp-ligne" + (n.action === "ignorer" ? " ignore" : "");
+    const c = document.createElement("input"); c.type = "checkbox"; c.checked = n.action !== "ignorer"; c.disabled = n.action === "ignorer";
+    c.addEventListener("change", () => { n.coche = c.checked; });
+    const t = document.createElement("span"); const nm = document.createElement("span"); nm.className = "nom"; nm.textContent = n.titre || "Note sans titre";
+    const sm = document.createElement("small"); sm.textContent = n.detail; t.append(nm, sm);
+    l.append(c, t); return l;
+  }));
+  const utiles = notes.filter((n) => n.action !== "ignorer").length;
+  $("imp-msg").textContent = !notes.length ? "Aucune note Keep trouvée dans ces fichiers." : utiles ? "Décoche ce que tu ne veux pas, puis « Importer »." : "Rien à importer.";
+  if (erreurs.length && notes.length) $("imp-msg").textContent += " (" + erreurs.length + " fichier(s) non reconnu(s))";
+  $("imp-btns").hidden = !utiles;
+}
+async function importerKeep() {
+  const choix = (IMP || []).filter((n) => n.action !== "ignorer" && n.coche); if (!choix.length) return;
+  $("imp-go").disabled = true; $("imp-msg").className = "imp-msg"; $("imp-msg").textContent = "Import en cours…";
+  let ordre = Math.max(0, ...GROUPES.map((g) => g.ordre || 0));
+  const bilan = [];
+  for (const n of choix) {
+    if (n.action === "courses") {
+      const gc = groupe("courses"); if (!gc) continue;
+      const exist = (await getDocs(colArticlesDe(gc))).docs.map((d) => ({ ref: d.ref, ...d.data() }));
+      const termes = {}, histo = await getDoc(refHistoDe(gc));
+      const avant = histo.exists() ? (histo.data().termes || {}) : {};
+      n.liste.forEach((x) => { const k = cle(x.texte); termes[k] = termes[k] ? { t: termes[k].t, n: termes[k].n + 1 } : { t: x.texte, n: 1 }; });
+      Object.keys(termes).forEach((k) => { if (avant[k] && (Number(avant[k].n) || 0) >= termes[k].n) delete termes[k]; else if (avant[k] && avant[k].t) termes[k].t = String(avant[k].t); });
+      const ecritures = [], base = Date.now(); let ajoutes = 0;
+      n.liste.filter((x) => !x.coche).forEach((x, i) => {
+        const e = exist.find((a) => a.type !== "titre" && cle(a.texte) === cle(x.texte));
+        if (e) { if (e.coche) ecritures.push(updateDoc(e.ref, { coche: false })); }
+        else { ajoutes++; ecritures.push(addDoc(colArticlesDe(gc), { texte: x.texte, coche: false, ordre: base + i })); }
+      });
+      if (Object.keys(termes).length) ecritures.push(setDoc(refHistoDe(gc), { termes }, { merge: true }));
+      await Promise.all(ecritures);
+      bilan.push("Liste de courses : " + ajoutes + " ajouté" + (ajoutes > 1 ? "s" : ""));
+    } else {
+      ordre++;
+      const g = { nom: n.titre, type: n.action, archive: n.archive, ordre, texte: n.action === "note" ? n.texte : "", couleur: n.action === "note" ? n.couleur : "", modifieLe: n.modifieLe, keep: n.cleKeep };
+      const r = await addDoc(colGroupes(), g);
+      if (n.action === "liste") {
+        const col = collection(db, "users", UID, "groupes", r.id, "articles"), base = Date.now(), termes = {};
+        n.liste.forEach((x) => { termes[cle(x.texte)] = { t: x.texte, n: 1 }; });
+        await Promise.all([...n.liste.map((x, i) => addDoc(col, x.coche ? { texte: x.texte, coche: true, cocheLe: base - i, ordre: base + i } : { texte: x.texte, coche: false, ordre: base + i })),
+          setDoc(doc(db, "users", UID, "groupes", r.id, "meta", "historique"), { termes }, { merge: true })]);
+      }
+      bilan.push((n.titre || "Note") + (n.archive ? " (Archives)" : ""));
+    }
+    n.action = "ignorer"; n.detail = "importée";
+  }
+  $("imp-go").disabled = false; $("imp-btns").hidden = true;
+  [...$("imp-apercu").querySelectorAll("input")].forEach((c) => { c.disabled = true; });
+  $("imp-msg").className = "imp-msg ok"; $("imp-msg").textContent = "Import terminé ✓ " + bilan.join(" · ");
+}
+$("imp-choisir").addEventListener("click", () => $("imp-fichiers").click());
+$("imp-fichiers").addEventListener("change", (e) => { choisirFichiersKeep([...e.target.files]).catch((err) => { console.error(err); $("imp-msg").textContent = "Lecture impossible."; }); });
+$("imp-go").addEventListener("click", () => { importerKeep().catch((err) => { $("imp-go").disabled = false; erreur(err); $("imp-msg").textContent = "Import interrompu, réessaie (ce qui est déjà importé ne sera pas recréé)."; }); });
 
 /* ---------- affichage ---------- */
 function bouton(cls, texte, titre, action) {
