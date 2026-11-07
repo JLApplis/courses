@@ -154,7 +154,8 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
 .couleurs button { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(0,0,0,.12); cursor: pointer; }
 .couleurs button.choisi { border-color: var(--leaf); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--leaf); }
 .note-etat { font-size: 12px; color: var(--muted); }
-.note-actions { display: flex; justify-content: space-between; padding-top: 8px; }
+.note-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 8px; }
+.note-droite { display: flex; gap: 16px; }
 /* archives */
 .arch { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin-top: 10px; }
 .arch .nom { flex: 1; min-width: 150px; font-weight: 600; }
@@ -248,7 +249,8 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
         <span class="note-etat" id="note-etat"></span>
       </div>
     </div>
-    <div class="note-actions"><button class="lien" id="note-retour" type="button">← Toutes les notes</button><button class="lien" id="note-archiver" type="button">🗄️ Archiver la note</button></div>
+    <div class="note-actions"><button class="lien" id="note-retour" type="button">← Toutes les notes</button><span class="note-droite"><button class="lien" id="note-archiver" type="button">🗄️ Archiver</button><button class="lien rouge" id="note-supprimer" type="button">🗑️ Supprimer</button></span></div>
+    <div class="confirme" id="note-confirme" hidden><span>Supprimer définitivement cette note ?</span><button class="non" id="note-non" type="button">Annuler</button><button class="oui" id="note-oui" type="button">Supprimer</button></div>
   </section>
 
   <section id="vue-archives" hidden>
@@ -267,7 +269,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-const VERSION = "1.6";
+const VERSION = "1.7";
 
 /* ===== CONFIGURATION FIREBASE (projet courses-e9163) ===== */
 const firebaseConfig = {
@@ -445,6 +447,7 @@ function rendreNotes() {
   }));
 }
 function chargerNote(g) {
+  $("note-confirme").hidden = true;
   $("note-titre").value = g.nom; $("note-texte").value = g.texte; $("note-edit").style.background = g.couleur || COULEURS[0];
   $("couleurs").replaceChildren(...COULEURS.map((c) => {
     const b = document.createElement("button"); b.type = "button"; b.style.background = c; b.className = c === (g.couleur || COULEURS[0]) ? "choisi" : ""; b.setAttribute("aria-label", "Couleur " + c);
@@ -498,6 +501,15 @@ $("note-texte").addEventListener("input", noteModifiee);
 $("note-titre").addEventListener("blur", () => enregistrerNote(true));
 $("note-texte").addEventListener("blur", () => enregistrerNote(true));
 $("note-retour").addEventListener("click", () => montrer({ type: "notes" }));
+$("note-supprimer").addEventListener("click", () => { $("note-confirme").hidden = false; $("note-non").focus(); });
+$("note-non").addEventListener("click", () => { $("note-confirme").hidden = true; });
+$("note-oui").addEventListener("click", () => {
+  const id = VUE && VUE.id; if (!id) return;
+  clearTimeout(minuteurNote); NOTE_SALE = false; $("note-confirme").hidden = true;
+  GROUPES = GROUPES.filter((g) => g.id !== id);
+  deleteDoc(refGroupe(id)).catch(erreur);
+  montrer({ type: "notes" });
+});
 $("note-archiver").addEventListener("click", () => { enregistrerNote(true); archiverGroupe(VUE.id, true); montrer({ type: "notes" }); });
 window.addEventListener("pagehide", () => enregistrerNote(true));
 document.addEventListener("visibilitychange", () => { if (document.hidden) enregistrerNote(true); });
