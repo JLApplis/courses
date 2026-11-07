@@ -110,6 +110,59 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
 .connexion .msg { min-height: 20px; font-size: 14px; color: var(--tomato); text-align: center; }
 .connexion .msg.ok { color: var(--leaf); }
 .deco { background: none; border: none; color: var(--leaf); font: 600 13px var(--font); cursor: pointer; padding: 4px 0; }
+/* menu latéral */
+.btn-menu { flex: none; width: 40px; height: 40px; border: none; border-radius: 12px; background: rgba(255,255,255,.16); color: #fff; font-size: 22px; line-height: 1; cursor: pointer; }
+.btn-menu:hover, .btn-menu:focus-visible { background: rgba(255,255,255,.28); outline: none; }
+#voile { position: fixed; inset: 0; background: rgba(30,40,25,.35); z-index: 20; }
+#tiroir { position: fixed; top: 0; bottom: 0; left: 0; width: min(300px, 86vw); background: var(--bg); z-index: 21; box-shadow: 6px 0 24px rgba(0,0,0,.18);
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 12px calc(14px + env(safe-area-inset-bottom, 0px)) calc(12px + env(safe-area-inset-left, 0px)); overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.tiroir-tete { display: flex; align-items: center; padding: 4px 8px 12px; }
+.tiroir-titre { flex: 1; font: 600 26px var(--display); color: var(--leaf); }
+.fermer-tiroir { border: none; background: transparent; font-size: 28px; color: var(--muted); cursor: pointer; width: 40px; height: 40px; border-radius: 50%; }
+.tiroir-label { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; padding: 6px 12px; }
+.tiroir-item { display: flex; align-items: center; gap: 12px; width: 100%; border: none; background: transparent; color: var(--fg); font: 600 16px var(--font); text-align: left; padding: 11px 12px; border-radius: 0 22px 22px 0; cursor: pointer; }
+.tiroir-item:hover, .tiroir-item:focus-visible { background: #F1EADB; outline: none; }
+.tiroir-item.actif { background: var(--leaf-soft); color: #1F5C39; }
+.tiroir-item .ic { width: 22px; text-align: center; flex: none; }
+.tiroir-item .nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tiroir-item .compte { margin-left: auto; font-size: 13px; color: var(--muted); font-weight: 600; }
+.ajout-item { color: var(--leaf); font-weight: 600; }
+.tiroir-sep { height: 1px; background: var(--line); margin: 8px 4px; }
+.tiroir-pied { margin-top: auto; padding: 16px 12px 4px; color: var(--muted); font-size: 12px; line-height: 1.8; }
+/* fenêtre « renommer / archiver » */
+.pop { margin-top: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; box-shadow: 0 6px 18px rgba(80,60,20,.10); display: grid; gap: 10px; }
+.pop label { font-size: 13px; font-weight: 600; color: #6B6455; display: grid; gap: 5px; }
+.pop input { background: var(--field); border: 1.5px solid var(--line); color: var(--fg); font: inherit; padding: 9px 11px; border-radius: 10px; }
+.pop input:focus { outline: none; border-color: var(--leaf); }
+.pop-btns { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pop-ok { border: none; background: var(--leaf); color: #fff; font: 600 15px var(--font); padding: 8px 16px; border-radius: 10px; cursor: pointer; }
+/* notes */
+.btn-nouveau { margin-top: 14px; border: 2px dashed #CFE5D3; background: var(--surface); color: var(--leaf); font: 600 16px var(--font); width: 100%; padding: 12px; border-radius: 14px; cursor: pointer; }
+.btn-nouveau:hover { background: var(--leaf-soft); }
+.grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 14px; align-items: start; }
+.carte { text-align: left; border: 1px solid rgba(0,0,0,.06); border-radius: 14px; padding: 12px 14px; cursor: pointer; font: inherit; color: var(--fg); box-shadow: 0 2px 8px rgba(80,60,20,.06); min-height: 70px; }
+.carte:hover, .carte:focus-visible { box-shadow: 0 4px 14px rgba(80,60,20,.16); outline: none; }
+.carte h3 { margin: 0 0 6px; font: 600 17px var(--display); overflow-wrap: anywhere; }
+.carte p { margin: 0; font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden; color: #4A473E; }
+.carte .type { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 8px; display: block; }
+.note-edit { margin-top: 14px; border-radius: 16px; padding: 14px 16px 10px; border: 1px solid rgba(0,0,0,.06); box-shadow: 0 2px 10px rgba(80,60,20,.06); }
+.note-titre { width: 100%; background: transparent; border: none; font: 600 22px var(--display); color: var(--fg); padding: 4px 0 8px; }
+.note-titre:focus, .note-texte:focus { outline: none; }
+.note-texte { width: 100%; min-height: 50vh; background: transparent; border: none; resize: vertical; font: 17px/1.5 var(--font); color: var(--fg); padding: 0; }
+.note-bas { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid rgba(0,0,0,.06); }
+.couleurs { display: flex; gap: 8px; flex: 1; flex-wrap: wrap; }
+.couleurs button { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(0,0,0,.12); cursor: pointer; }
+.couleurs button.choisi { border-color: var(--leaf); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--leaf); }
+.note-etat { font-size: 12px; color: var(--muted); }
+.note-actions { display: flex; justify-content: space-between; padding-top: 8px; }
+/* archives */
+.arch { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin-top: 10px; }
+.arch .nom { flex: 1; min-width: 150px; font-weight: 600; }
+.arch .nom small { display: block; color: var(--muted); font-weight: 500; font-size: 13px; }
+.arch button { border: none; border-radius: 10px; padding: 7px 12px; font: 600 14px var(--font); cursor: pointer; }
+.arch .rest { background: var(--leaf-soft); color: #1F5C39; }
+.arch .suppr-def { background: #FBE3DD; color: #A33A25; }
+.arch .oui { background: var(--tomato); color: #fff; }
 .version { text-align: center; color: var(--muted); font-size: 12px; padding-top: 26px; }
 </style>
 </head>
@@ -130,13 +183,34 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
   </div>
 </form>
 
-<div class="page" id="ecran-liste" hidden>
-  <header>
-    <h1>Courses</h1>
-    <span class="deco-fruits" aria-hidden="true">🥕🍅🥖</span>
-    <span class="etat" id="etat">Chargement…</span>
-  </header>
+<div id="app" hidden>
+<div id="voile" hidden></div>
+<nav id="tiroir" aria-label="Menu" hidden>
+  <div class="tiroir-tete"><span class="tiroir-titre">Courses</span><button class="fermer-tiroir" id="fermer-tiroir" type="button" aria-label="Fermer le menu">×</button></div>
+  <div class="tiroir-label">Listes</div>
+  <div id="tiroir-listes"></div>
+  <button class="tiroir-item ajout-item" id="nouvelle-liste" type="button"><span class="ic">＋</span>Nouvelle liste</button>
+  <div class="tiroir-sep"></div>
+  <button class="tiroir-item" id="aller-notes" type="button"><span class="ic">📝</span>Notes<span class="compte" id="nb-notes"></span></button>
+  <button class="tiroir-item ajout-item" id="nouvelle-note" type="button"><span class="ic">＋</span>Nouvelle note</button>
+  <div class="tiroir-sep"></div>
+  <button class="tiroir-item" id="aller-archives" type="button"><span class="ic">🗄️</span>Archives<span class="compte" id="nb-archives"></span></button>
+  <div class="tiroir-pied">Courses <span id="version"></span> — JLApplis<br><button class="deco" id="deco" type="button">Se déconnecter</button></div>
+</nav>
 
+<div class="page">
+  <header>
+    <button class="btn-menu" id="btn-menu" type="button" aria-label="Ouvrir le menu">☰</button>
+    <h1 id="titre-vue">Courses</h1>
+    <span class="etat" id="etat">Chargement…</span>
+    <button class="btn-menu" id="btn-actions" type="button" aria-label="Renommer ou archiver" hidden>⋮</button>
+  </header>
+  <div class="pop" id="pop-actions" hidden>
+    <label>Nom<input id="pop-nom" type="text" autocomplete="off"></label>
+    <div class="pop-btns"><button class="lien" id="pop-archiver" type="button">🗄️ Archiver</button><button class="pop-ok" id="pop-ok" type="button">Enregistrer</button></div>
+  </div>
+
+  <section id="vue-liste" hidden>
   <div class="fiche">
     <ul id="liste" aria-label="Articles à acheter"></ul>
     <div id="vide" class="vide" hidden>La liste est vide. Ajoute un article ci-dessous.</div>
@@ -157,7 +231,31 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
     <div class="outils"><button class="lien rouge" id="vider" type="button">Supprimer les éléments cochés</button></div>
     <div id="confirme"></div>
   </div>
-  <div class="version">Courses <span id="version"></span> — JLApplis · <button class="deco" id="deco" type="button">Se déconnecter</button></div>
+  </section>
+
+  <section id="vue-notes" hidden>
+    <button class="btn-nouveau" id="nouvelle-note-2" type="button">＋ Nouvelle note</button>
+    <div class="grille" id="grille-notes"></div>
+    <div class="vide" id="notes-vide" hidden>Aucune note pour l'instant.</div>
+  </section>
+
+  <section id="vue-note" hidden>
+    <div class="note-edit" id="note-edit">
+      <input id="note-titre" class="note-titre" type="text" placeholder="Titre" autocomplete="off" aria-label="Titre de la note">
+      <textarea id="note-texte" class="note-texte" placeholder="Écris ta note…" aria-label="Texte de la note"></textarea>
+      <div class="note-bas">
+        <div class="couleurs" id="couleurs" aria-label="Couleur de la note"></div>
+        <span class="note-etat" id="note-etat"></span>
+      </div>
+    </div>
+    <div class="note-actions"><button class="lien" id="note-retour" type="button">← Toutes les notes</button><button class="lien" id="note-archiver" type="button">🗄️ Archiver la note</button></div>
+  </section>
+
+  <section id="vue-archives" hidden>
+    <div id="liste-archives"></div>
+    <div class="vide" id="archives-vide" hidden>Rien dans les archives.</div>
+  </section>
+</div>
 </div>
 
 <script type="module">
@@ -167,9 +265,9 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
 */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-const VERSION = "1.5";
+const VERSION = "1.6";
 
 /* ===== CONFIGURATION FIREBASE (projet courses-e9163) ===== */
 const firebaseConfig = {
@@ -188,14 +286,20 @@ const db = initializeFirestore(app, { localCache: persistentLocalCache() });
 
 const $ = (id) => document.getElementById(id);
 let UID = null, ARTS = [], HISTO = {}, ouvert = false, desabonner = [], glisse = null, aRendre = false;
+let GROUPES = [], G = null, VUE = null, desabListe = [], groupesCharges = false;
 try { ouvert = localStorage.getItem("courses_coches_ouvert") === "1"; } catch (e) { /* sans gravité */ }
 $("version").textContent = VERSION;
 
 const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 const cle = (s) => norm(s).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 120) || "x";
-const colArticles = () => collection(db, "users", UID, "articles");
-const refArticle = (id) => doc(db, "users", UID, "articles", id);
-const refHisto = () => doc(db, "users", UID, "meta", "historique");
+// « Liste de courses » (id « courses ») garde l'emplacement d'origine des données ; les autres listes ont le leur
+const colGroupes = () => collection(db, "users", UID, "groupes");
+const refGroupe = (gid) => doc(db, "users", UID, "groupes", gid);
+const colArticlesDe = (g) => g.legacy ? collection(db, "users", UID, "articles") : collection(db, "users", UID, "groupes", g.id, "articles");
+const refHistoDe = (g) => g.legacy ? doc(db, "users", UID, "meta", "historique") : doc(db, "users", UID, "groupes", g.id, "meta", "historique");
+const colArticles = () => colArticlesDe(G);
+const refArticle = (id) => doc(colArticlesDe(G), id);
+const refHisto = () => refHistoDe(G);
 function etat(msg, alerte) { const e = $("etat"); e.textContent = msg || ""; e.classList.toggle("alerte", !!alerte); }
 function erreur(e) { console.error(e); etat("Enregistrement impossible, réessaie", true); }
 
@@ -215,23 +319,188 @@ $("oubli").addEventListener("click", () => {
 $("deco").addEventListener("click", () => signOut(auth));
 
 onAuthStateChanged(auth, (u) => {
-  desabonner.forEach((f) => f()); desabonner = []; ARTS = []; HISTO = {};
+  desabonner.forEach((f) => f()); desabonner = []; desabListe.forEach((f) => f()); desabListe = [];
+  ARTS = []; HISTO = {}; GROUPES = []; G = null; VUE = null; groupesCharges = false;
   UID = u ? u.uid : null;
-  $("ecran-connexion").hidden = !!u; $("ecran-liste").hidden = !u;
+  $("ecran-connexion").hidden = !!u; $("app").hidden = !u;
   if (!u) return;
-  etat("Chargement…"); rendre();
+  etat("Chargement…");
+  desabonner.push(onSnapshot(colGroupes(), (snap) => {
+    GROUPES = snap.docs.map((d) => { const x = d.data(); return { id: d.id, nom: String(x.nom || ""), type: x.type === "note" ? "note" : "liste", archive: !!x.archive,
+      ordre: x.ordre || 0, legacy: !!x.legacy, texte: String(x.texte || ""), couleur: x.couleur || "", modifieLe: x.modifieLe || 0 }; });
+    if (!snap.metadata.fromCache && !GROUPES.some((g) => g.id === "courses")) {
+      // première ouverture : la liste existante devient « Liste de courses »
+      setDoc(refGroupe("courses"), { nom: "Liste de courses", type: "liste", legacy: true, archive: false, ordre: 0, modifieLe: Date.now() }, { merge: true }).catch(erreur);
+      return;
+    }
+    if (!GROUPES.length) return;
+    groupesCharges = true;
+    rendreTiroir();
+    if (!VUE) { let v = null; try { v = JSON.parse(localStorage.getItem("courses_vue") || "null"); } catch (e) { v = null; } montrer(v && vueValide(v) ? v : { type: "liste", id: "courses" }); }
+    else if (!vueValide(VUE)) montrer({ type: "liste", id: (listesActives()[0] || {}).id || "courses" });
+    else rafraichirVue();
+  }, (err) => etat("Listes injoignables (" + err.code + ")", true)));
+});
+
+/* ---------- menu, groupes et vues ---------- */
+const listesActives = () => GROUPES.filter((g) => g.type === "liste" && !g.archive).sort((a, b) => a.ordre - b.ordre);
+const notesActives = () => GROUPES.filter((g) => g.type === "note" && !g.archive).sort((a, b) => b.modifieLe - a.modifieLe);
+const archives = () => GROUPES.filter((g) => g.archive).sort((a, b) => b.modifieLe - a.modifieLe);
+const groupe = (id) => GROUPES.find((g) => g.id === id);
+function vueValide(v) {
+  if (!v || !v.type) return false;
+  if (v.type === "notes" || v.type === "archives") return true;
+  const g = groupe(v.id); return !!g && !g.archive && g.type === (v.type === "note" ? "note" : "liste");
+}
+function ouvrirTiroir(o) { $("tiroir").hidden = !o; $("voile").hidden = !o; if (o) { const b = $("tiroir").querySelector(".tiroir-item.actif") || $("fermer-tiroir"); b.focus(); } }
+function rendreTiroir() {
+  $("tiroir-listes").replaceChildren(...listesActives().map((g) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "tiroir-item" + (VUE && VUE.type === "liste" && VUE.id === g.id ? " actif" : "");
+    const ic = document.createElement("span"); ic.className = "ic"; ic.textContent = g.id === "courses" ? "🛒" : "☑️";
+    const n = document.createElement("span"); n.className = "nom"; n.textContent = g.nom || "Sans nom";
+    b.append(ic, n); b.addEventListener("click", () => montrer({ type: "liste", id: g.id })); return b;
+  }));
+  $("aller-notes").classList.toggle("actif", !!VUE && (VUE.type === "notes" || VUE.type === "note"));
+  $("aller-archives").classList.toggle("actif", !!VUE && VUE.type === "archives");
+  $("nb-notes").textContent = notesActives().length || ""; $("nb-archives").textContent = archives().length || "";
+}
+function montrer(v) {
+  if (VUE && VUE.type === "note") enregistrerNote(true);
+  VUE = v; try { localStorage.setItem("courses_vue", JSON.stringify(v)); } catch (e) { /* sans gravité */ }
+  ouvrirTiroir(false); $("pop-actions").hidden = true;
+  ["liste", "notes", "note", "archives"].forEach((t) => { $("vue-" + t).hidden = t !== v.type; });
+  if (v.type !== "liste") { desabListe.forEach((f) => f()); desabListe = []; G = null; fermerInsertion(); }
+  if (v.type === "liste") ouvrirListe(v.id);
+  rafraichirVue(); rendreTiroir(); window.scrollTo(0, 0);
+}
+function rafraichirVue() {
+  const v = VUE; if (!v) return;
+  const g = v.id ? groupe(v.id) : null;
+  $("titre-vue").textContent = v.type === "notes" ? "Notes" : v.type === "archives" ? "Archives" : (g ? (g.nom || (g.type === "note" ? "Note" : "Sans nom")) : "");
+  $("btn-actions").hidden = v.type !== "liste";
+  $("etat").hidden = v.type !== "liste";
+  if (v.type === "notes") rendreNotes();
+  if (v.type === "archives") rendreArchives();
+  if (v.type === "note" && g && document.activeElement !== $("note-titre") && document.activeElement !== $("note-texte") && !NOTE_SALE) chargerNote(g);
+}
+function ouvrirListe(gid) {
+  const g = groupe(gid); if (!g) return;
+  if (G && G.id === gid && desabListe.length) { G = g; return; }
+  desabListe.forEach((f) => f()); desabListe = []; fermerInsertion();
+  G = g; ARTS = []; HISTO = {}; $("nouveau").value = ""; rendre();
+  etat("Chargement…");
   const minuteur = setTimeout(() => etat("Hors ligne — les changements seront envoyés au retour du réseau", true), 10000);
-  desabonner.push(onSnapshot(colArticles(), { includeMetadataChanges: true }, (snap) => {
+  desabListe.push(onSnapshot(colArticles(), { includeMetadataChanges: true }, (snap) => {
     ARTS = snap.docs.map((d) => { const x = d.data(); return { id: d.id, texte: String(x.texte || ""), coche: !!x.coche, ordre: x.ordre || 0, cocheLe: x.cocheLe || 0, titre: x.type === "titre" }; });
     if (!snap.metadata.fromCache) { clearTimeout(minuteur); etat(snap.metadata.hasPendingWrites ? "Enregistrement…" : "À jour"); }
     if (!glisse) rendre(); else aRendre = true;
   }, (err) => { clearTimeout(minuteur); etat("Liste injoignable (" + err.code + ")", true); }));
-  desabonner.push(onSnapshot(refHisto(), (s) => {
+  desabListe.push(onSnapshot(refHisto(), (s) => {
     const t = s.exists() ? (s.data().termes || {}) : {}; HISTO = {};
     Object.keys(t).forEach((k) => { if (t[k] && t[k].t) HISTO[k] = { t: String(t[k].t), n: Number(t[k].n) || 1 }; });
     suggerer();
   }, () => { /* suggestions indisponibles : la liste fonctionne quand même */ }));
-});
+}
+async function creerGroupe(type) {
+  const ordre = Math.max(0, ...GROUPES.map((g) => g.ordre || 0)) + 1;
+  const r = await addDoc(colGroupes(), { nom: type === "note" ? "" : "Nouvelle liste", type, archive: false, ordre, texte: "", couleur: type === "note" ? COULEURS[0] : "", modifieLe: Date.now() });
+  GROUPES.push({ id: r.id, nom: type === "note" ? "" : "Nouvelle liste", type, archive: false, ordre, texte: "", couleur: COULEURS[0], modifieLe: Date.now() });
+  if (type === "note") { montrer({ type: "note", id: r.id }); setTimeout(() => $("note-titre").focus(), 50); }
+  else { montrer({ type: "liste", id: r.id }); ouvrirActions(true); }
+}
+function archiverGroupe(gid, oui) {
+  updateDoc(refGroupe(gid), { archive: oui, modifieLe: Date.now() }).catch(erreur);
+  const g = groupe(gid); if (g) g.archive = oui;
+}
+async function supprimerGroupe(gid) {
+  const g = groupe(gid); if (!g) return;
+  if (g.type === "liste") {
+    const snap = await getDocs(colArticlesDe(g));
+    for (const d of snap.docs) await deleteDoc(d.ref);
+    await deleteDoc(refHistoDe(g)).catch(() => {});
+  }
+  await deleteDoc(refGroupe(gid));
+}
+/* renommer / archiver la liste affichée */
+function ouvrirActions(o) {
+  const p = $("pop-actions"); p.hidden = !o; if (!o || !VUE) return;
+  const g = groupe(VUE.id); $("pop-nom").value = g ? g.nom : ""; $("pop-nom").focus(); $("pop-nom").select();
+}
+function validerNom() {
+  const g = groupe(VUE.id), nom = $("pop-nom").value.trim(); if (!g || !nom) { ouvrirActions(false); return; }
+  if (nom !== g.nom) { g.nom = nom; updateDoc(refGroupe(g.id), { nom, modifieLe: Date.now() }).catch(erreur); rafraichirVue(); rendreTiroir(); }
+  ouvrirActions(false);
+}
+/* notes */
+const COULEURS = ["#FFF7D6", "#E6F2E8", "#FDE4DC", "#E3EEF9", "#F1E6F7", "#FFFFFF"];
+let NOTE_SALE = false, minuteurNote = null;
+function rendreNotes() {
+  const l = notesActives();
+  $("notes-vide").hidden = l.length > 0;
+  $("grille-notes").replaceChildren(...l.map((g) => {
+    const c = document.createElement("button"); c.type = "button"; c.className = "carte"; c.style.background = g.couleur || COULEURS[0];
+    if (g.nom) { const h = document.createElement("h3"); h.textContent = g.nom; c.appendChild(h); }
+    const p = document.createElement("p"); p.textContent = g.texte || (g.nom ? "" : "Note vide"); c.appendChild(p);
+    c.addEventListener("click", () => montrer({ type: "note", id: g.id })); return c;
+  }));
+}
+function chargerNote(g) {
+  $("note-titre").value = g.nom; $("note-texte").value = g.texte; $("note-edit").style.background = g.couleur || COULEURS[0];
+  $("couleurs").replaceChildren(...COULEURS.map((c) => {
+    const b = document.createElement("button"); b.type = "button"; b.style.background = c; b.className = c === (g.couleur || COULEURS[0]) ? "choisi" : ""; b.setAttribute("aria-label", "Couleur " + c);
+    b.addEventListener("click", () => { g.couleur = c; updateDoc(refGroupe(g.id), { couleur: c }).catch(erreur); chargerNote(g); }); return b;
+  }));
+  $("note-etat").textContent = "";
+}
+function noteModifiee() { NOTE_SALE = true; $("note-etat").textContent = "…"; clearTimeout(minuteurNote); minuteurNote = setTimeout(() => enregistrerNote(false), 800); }
+function enregistrerNote(maintenant) {
+  clearTimeout(minuteurNote);
+  if (!NOTE_SALE || !VUE || VUE.type !== "note") return;
+  const g = groupe(VUE.id); if (!g) return;
+  const nom = $("note-titre").value.trim(), texte = $("note-texte").value;
+  NOTE_SALE = false; g.nom = nom; g.texte = texte; g.modifieLe = Date.now();
+  updateDoc(refGroupe(g.id), { nom, texte, modifieLe: g.modifieLe }).then(() => { if (VUE && VUE.id === g.id) $("note-etat").textContent = "Enregistré"; }).catch(erreur);
+}
+/* archives */
+function rendreArchives() {
+  const l = archives();
+  $("archives-vide").hidden = l.length > 0;
+  $("liste-archives").replaceChildren(...l.map((g) => {
+    const d = document.createElement("div"); d.className = "arch";
+    const n = document.createElement("div"); n.className = "nom"; n.textContent = (g.type === "note" ? "📝 " : "☑️ ") + (g.nom || "Note sans titre");
+    const sm = document.createElement("small"); sm.textContent = g.type === "note" ? (g.texte.slice(0, 60) || "Note") : "Liste"; n.appendChild(sm);
+    const r = document.createElement("button"); r.type = "button"; r.className = "rest"; r.textContent = "Restaurer";
+    r.addEventListener("click", () => { archiverGroupe(g.id, false); rendreArchives(); rendreTiroir(); });
+    const x = document.createElement("button"); x.type = "button"; x.className = "suppr-def"; x.textContent = "Supprimer";
+    x.addEventListener("click", () => {
+      x.remove(); const o = document.createElement("button"); o.type = "button"; o.className = "oui"; o.textContent = "Supprimer définitivement ?";
+      o.addEventListener("click", () => { o.disabled = true; o.textContent = "Suppression…"; supprimerGroupe(g.id).catch(erreur); });
+      d.appendChild(o);
+    });
+    d.append(n, r, x); return d;
+  }));
+}
+$("btn-menu").addEventListener("click", () => ouvrirTiroir(true));
+$("fermer-tiroir").addEventListener("click", () => ouvrirTiroir(false));
+$("voile").addEventListener("click", () => ouvrirTiroir(false));
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("tiroir").hidden) ouvrirTiroir(false); });
+$("nouvelle-liste").addEventListener("click", () => creerGroupe("liste").catch(erreur));
+$("nouvelle-note").addEventListener("click", () => creerGroupe("note").catch(erreur));
+$("nouvelle-note-2").addEventListener("click", () => creerGroupe("note").catch(erreur));
+$("aller-notes").addEventListener("click", () => montrer({ type: "notes" }));
+$("aller-archives").addEventListener("click", () => montrer({ type: "archives" }));
+$("btn-actions").addEventListener("click", () => ouvrirActions($("pop-actions").hidden));
+$("pop-ok").addEventListener("click", validerNom);
+$("pop-nom").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); validerNom(); } if (e.key === "Escape") ouvrirActions(false); });
+$("pop-archiver").addEventListener("click", () => { const id = VUE.id; archiverGroupe(id, true); montrer({ type: "liste", id: (listesActives()[0] || {}).id || "courses" }); });
+$("note-titre").addEventListener("input", noteModifiee);
+$("note-texte").addEventListener("input", noteModifiee);
+$("note-titre").addEventListener("blur", () => enregistrerNote(true));
+$("note-texte").addEventListener("blur", () => enregistrerNote(true));
+$("note-retour").addEventListener("click", () => montrer({ type: "notes" }));
+$("note-archiver").addEventListener("click", () => { enregistrerNote(true); archiverGroupe(VUE.id, true); montrer({ type: "notes" }); });
+window.addEventListener("pagehide", () => enregistrerNote(true));
+document.addEventListener("visibilitychange", () => { if (document.hidden) enregistrerNote(true); });
 
 /* ---------- affichage ---------- */
 function bouton(cls, texte, titre, action) {
@@ -302,7 +571,7 @@ function memoriser(texte) {
   return setDoc(refHisto(), { termes: { [k]: { t: texte.trim(), n } } }, { merge: true });
 }
 function ajouter(texte, ordre, depuisInsertion) {
-  texte = String(texte || "").trim(); if (!texte || !UID) return Promise.resolve();
+  texte = String(texte || "").trim(); if (!texte || !UID || !G) return Promise.resolve();
   if (!depuisInsertion) { $("nouveau").value = ""; suggerer(); $("nouveau").focus(); }
   const exist = ARTS.find((a) => !a.titre && cle(a.texte) === cle(texte));
   // déjà dans la liste cochée : on le remet à acheter au lieu de créer un doublon
@@ -377,7 +646,7 @@ function validerInsertion(etFermer) {
 }
 function cocher(id, val) { updateDoc(refArticle(id), val ? { coche: true, cocheLe: Date.now() } : { coche: false }).catch(erreur); }
 function ajouterTitre() {
-  if (!UID) return;
+  if (!UID || !G) return;
   const texte = $("nouveau").value.trim() || "Magasin";
   $("nouveau").value = ""; suggerer();
   addDoc(colArticles(), { texte, type: "titre", coche: false, ordre: Date.now() }).then((r) => {
