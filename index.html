@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Courses</title>
+<meta name="theme-color" content="#0B1324">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout : une colonne façon carnet, bloc-notes sombre bleu nuit, centrée et limitée en largeur sur PC */
+:root {
+  --bg: #0B1324;        /* fond bleu nuit */
+  --surface: #131D33;   /* barre et champ */
+  --line: #24304A;      /* séparateurs */
+  --fg: #E7ECF5;        /* texte */
+  --muted: #8C98B0;     /* texte secondaire, éléments cochés */
+  --accent: #7FB2FF;    /* bleu des actions */
+  --danger: #FF8A80;    /* croix au survol */
+  --font: "Figtree", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.4 var(--font);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: env(safe-area-inset-top, 0px) 32px; }
+.page { max-width: 560px; margin: 0 auto; }
+header { display: flex; align-items: center; gap: 10px; padding-block: 22px 14px; }
+h1 { margin: 0; font-size: 28px; font-weight: 500; letter-spacing: .5px; flex: 1; }
+.etat { font-size: 12px; color: var(--muted); }
+.etat.alerte { color: var(--danger); }
+ul { list-style: none; margin: 0; padding: 0; }
+li.art { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 2px 0; }
+li.art input[type=checkbox] { appearance: none; width: 24px; height: 24px; flex: none; margin: 0; border: 2px solid var(--muted); border-radius: 4px; cursor: pointer; display: grid; place-content: center; background: transparent; }
+li.art input[type=checkbox]:checked { border-color: var(--muted); }
+li.art input[type=checkbox]:checked::after { content: ""; width: 12px; height: 7px; border-left: 2.5px solid var(--muted); border-bottom: 2.5px solid var(--muted); transform: translateY(-2px) rotate(-45deg); }
+li.art input[type=checkbox]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.txt { flex: 1; min-width: 0; background: transparent; border: none; color: var(--fg); font: inherit; padding: 8px 0; border-bottom: 1px solid transparent; }
+.txt:focus { outline: none; border-bottom-color: var(--line); }
+li.coche .txt { color: var(--muted); text-decoration: line-through; }
+.suppr { flex: none; width: 40px; height: 40px; border: none; background: transparent; color: var(--muted); font-size: 22px; line-height: 1; border-radius: 50%; cursor: pointer; }
+.suppr:hover, .suppr:focus-visible { color: var(--danger); background: var(--surface); outline: none; }
+.ajout { position: relative; display: flex; align-items: center; gap: 12px; min-height: 52px; }
+.ajout .plus { width: 24px; text-align: center; font-size: 26px; color: var(--muted); flex: none; }
+#nouveau { flex: 1; min-width: 0; background: transparent; border: none; border-bottom: 1px solid var(--line); color: var(--fg); font: inherit; padding: 10px 0; }
+#nouveau::placeholder { color: var(--muted); }
+#nouveau:focus { outline: none; border-bottom-color: var(--accent); }
+.sugg { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px 0 4px 36px; }
+.sugg button { border: 1px solid var(--line); background: var(--surface); color: var(--fg); font: 500 15px var(--font); padding: 7px 12px; border-radius: 18px; cursor: pointer; }
+.sugg button:hover, .sugg button:focus-visible { border-color: var(--accent); outline: none; }
+.sugg button small { color: var(--muted); font-weight: 400; margin-left: 4px; }
+.bascule { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 18px; padding: 12px 0; border: none; border-top: 1px solid var(--line); background: transparent; color: var(--muted); font: 500 16px var(--font); cursor: pointer; text-align: left; }
+.bascule[aria-expanded="false"] .chev { transform: rotate(180deg); }
+.bascule .chev { width: 24px; display: grid; place-items: center; height: 20px; transition: transform .15s; }
+.bascule .chev::before { content: ""; width: 9px; height: 9px; border-left: 2px solid currentColor; border-top: 2px solid currentColor; transform: translateY(2px) rotate(45deg); }
+.outils { display: flex; justify-content: flex-end; padding-top: 6px; }
+.lien { background: none; border: none; color: var(--accent); font: 500 14px var(--font); cursor: pointer; padding: 6px 0; }
+.vide { color: var(--muted); padding: 18px 0 6px 36px; font-size: 15px; }
+.confirme { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-top: 8px; font-size: 15px; }
+.confirme span { flex: 1; min-width: 180px; }
+.confirme button { border: none; border-radius: 8px; padding: 7px 12px; font: 600 14px var(--font); cursor: pointer; }
+.confirme .oui { background: var(--danger); color: #2A0E0B; }
+.confirme .non { background: var(--line); color: var(--fg); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+/* écran de connexion */
+.connexion { max-width: 380px; margin: 12vh auto 0; display: grid; gap: 12px; }
+.connexion h1 { text-align: center; margin-bottom: 8px; }
+.connexion label { font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
+.connexion input { background: var(--surface); border: 1px solid var(--line); color: var(--fg); font: inherit; padding: 11px 12px; border-radius: 8px; }
+.connexion input:focus { outline: none; border-color: var(--accent); }
+.connexion .go { background: var(--accent); color: #0B1324; border: none; border-radius: 8px; padding: 12px; font: 700 16px var(--font); cursor: pointer; }
+.connexion .msg { min-height: 20px; font-size: 14px; color: var(--danger); text-align: center; }
+.connexion .msg.ok { color: var(--accent); }
+.deco { background: none; border: none; color: var(--muted); font: 500 13px var(--font); cursor: pointer; padding: 4px 0; }
+.version { text-align: center; color: var(--muted); font-size: 11px; padding-top: 28px; }
+</style>
+</head>
+<body>
+
+<form class="connexion" id="ecran-connexion" hidden autocomplete="on">
+  <h1>COURSES</h1>
+  <label>E-mail<input id="email" type="email" autocomplete="username" required></label>
+  <label>Mot de passe<input id="mdp" type="password" autocomplete="current-password" required></label>
+  <button class="go" type="submit">Se connecter</button>
+  <button class="lien" type="button" id="oubli">Mot de passe oublié ?</button>
+  <div class="msg" id="msg-connexion" role="status"></div>
+</form>
+
+<div class="page" id="ecran-liste" hidden>
+  <header>
+    <h1>COURSES</h1>
+    <span class="etat" id="etat">Chargement…</span>
+  </header>
+
+  <ul id="liste" aria-label="Articles à acheter"></ul>
+  <div id="vide" class="vide" hidden>La liste est vide. Ajoute un article ci-dessous.</div>
+
+  <form class="ajout" id="form-ajout" autocomplete="off">
+    <span class="plus" aria-hidden="true">+</span>
+    <input id="nouveau" type="text" placeholder="Élément de liste" aria-label="Ajouter un article" enterkeyhint="done">
+  </form>
+  <div class="sugg" id="sugg" aria-label="Suggestions"></div>
+
+  <button class="bascule" id="bascule" type="button" aria-expanded="false" hidden>
+    <span class="chev" aria-hidden="true"></span><span id="nb-coches"></span>
+  </button>
+  <div id="zone-coches" hidden>
+    <ul id="coches" aria-label="Articles cochés"></ul>
+    <div class="outils"><button class="lien" id="vider" type="button">Supprimer les éléments cochés</button></div>
+    <div id="confirme"></div>
+  </div>
+  <div class="version">Courses <span id="version"></span> — JLApplis · <button class="deco" id="deco" type="button">Se déconnecter</button></div>
+</div>
+
+<script type="module">
+/*
+    Courses — liste de courses (JLApplis)
+    Copyright (C) 2026 Jluc — JLApplis — Licence GPL v3 (voir LICENSE)
+*/
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+const VERSION = "1.0";
+
+/* ===== CONFIGURATION FIREBASE (projet courses-e9163) ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyDvz52I6Qcv5dWRCo_vQ9OjB9kvmVYQwog",
+  authDomain: "courses-e9163.firebaseapp.com",
+  projectId: "courses-e9163",
+  storageBucket: "courses-e9163.firebasestorage.app",
+  messagingSenderId: "684441703323",
+  appId: "1:684441703323:web:ebe67718a4265ff08e073e"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+// cache local : la liste s'affiche et se modifie même sans réseau dans le magasin, puis se synchronise
+const db = initializeFirestore(app, { localCache: persistentLocalCache() });
+
+const $ = (id) => document.getElementById(id);
+let UID = null, ARTS = [], HISTO = {}, ouvert = false, desabonner = [];
+try { ouvert = localStorage.getItem("courses_coches_ouvert") === "1"; } catch (e) { /* sans gravité */ }
+$("version").textContent = VERSION;
+
+const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+const cle = (s) => norm(s).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 120) || "x";
+const colArticles = () => collection(db, "users", UID, "articles");
+const refArticle = (id) => doc(db, "users", UID, "articles", id);
+const refHisto = () => doc(db, "users", UID, "meta", "historique");
+function etat(msg, alerte) { const e = $("etat"); e.textContent = msg || ""; e.classList.toggle("alerte", !!alerte); }
+function erreur(e) { console.error(e); etat("Enregistrement impossible, réessaie", true); }
+
+/* ---------- connexion ---------- */
+$("ecran-connexion").addEventListener("submit", (e) => {
+  e.preventDefault(); const m = $("msg-connexion"); m.className = "msg"; m.textContent = "Connexion…";
+  signInWithEmailAndPassword(auth, $("email").value.trim(), $("mdp").value)
+    .then(() => { m.textContent = ""; })
+    .catch((err) => { m.textContent = /invalid-credential|wrong-password|user-not-found|invalid-email/.test(err.code) ? "E-mail ou mot de passe incorrect." : "Connexion impossible (" + err.code + ")."; });
+});
+$("oubli").addEventListener("click", () => {
+  const m = $("msg-connexion"), mail = $("email").value.trim();
+  if (!mail) { m.className = "msg"; m.textContent = "Indique d'abord ton e-mail."; return; }
+  sendPasswordResetEmail(auth, mail).then(() => { m.className = "msg ok"; m.textContent = "E-mail de réinitialisation envoyé."; })
+    .catch((err) => { m.className = "msg"; m.textContent = "Envoi impossible (" + err.code + ")."; });
+});
+$("deco").addEventListener("click", () => signOut(auth));
+
+onAuthStateChanged(auth, (u) => {
+  desabonner.forEach((f) => f()); desabonner = []; ARTS = []; HISTO = {};
+  UID = u ? u.uid : null;
+  $("ecran-connexion").hidden = !!u; $("ecran-liste").hidden = !u;
+  if (!u) return;
+  etat("Chargement…"); rendre();
+  const minuteur = setTimeout(() => etat("Hors ligne — les changements seront envoyés au retour du réseau", true), 10000);
+  desabonner.push(onSnapshot(colArticles(), { includeMetadataChanges: true }, (snap) => {
+    ARTS = snap.docs.map((d) => { const x = d.data(); return { id: d.id, texte: String(x.texte || ""), coche: !!x.coche, ordre: x.ordre || 0, cocheLe: x.cocheLe || 0 }; });
+    if (!snap.metadata.fromCache) { clearTimeout(minuteur); etat(snap.metadata.hasPendingWrites ? "Enregistrement…" : "À jour"); }
+    rendre();
+  }, (err) => { clearTimeout(minuteur); etat("Liste injoignable (" + err.code + ")", true); }));
+  desabonner.push(onSnapshot(refHisto(), (s) => {
+    const t = s.exists() ? (s.data().termes || {}) : {}; HISTO = {};
+    Object.keys(t).forEach((k) => { if (t[k] && t[k].t) HISTO[k] = { t: String(t[k].t), n: Number(t[k].n) || 1 }; });
+    suggerer();
+  }, () => { /* suggestions indisponibles : la liste fonctionne quand même */ }));
+});
+
+/* ---------- affichage ---------- */
+function ligne(a) {
+  const li = document.createElement("li"); li.className = "art" + (a.coche ? " coche" : "");
+  const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = a.coche; cb.setAttribute("aria-label", (a.coche ? "Décocher " : "Cocher ") + a.texte);
+  cb.addEventListener("change", () => cocher(a.id, cb.checked));
+  const t = document.createElement("input"); t.className = "txt"; t.value = a.texte; t.id = "txt-" + a.id; t.setAttribute("aria-label", "Article");
+  t.addEventListener("keydown", (e) => { if (e.key === "Enter") t.blur(); });
+  t.addEventListener("change", () => renommer(a.id, t.value));
+  const x = document.createElement("button"); x.type = "button"; x.className = "suppr"; x.textContent = "×"; x.title = "Supprimer"; x.setAttribute("aria-label", "Supprimer " + a.texte);
+  x.addEventListener("click", () => supprimer(a.id));
+  li.append(cb, t, x); return li;
+}
+function rendre() {
+  const actif = document.activeElement && document.activeElement.classList.contains("txt") ? document.activeElement.id : null;
+  const aFaire = ARTS.filter((a) => !a.coche).sort((a, b) => a.ordre - b.ordre);
+  const faits = ARTS.filter((a) => a.coche).sort((a, b) => b.cocheLe - a.cocheLe);
+  $("liste").replaceChildren(...aFaire.map(ligne));
+  $("coches").replaceChildren(...faits.map(ligne));
+  $("vide").hidden = aFaire.length > 0;
+  $("bascule").hidden = !faits.length;
+  $("nb-coches").textContent = faits.length + " élément" + (faits.length > 1 ? "s" : "") + " coché" + (faits.length > 1 ? "s" : "");
+  $("bascule").setAttribute("aria-expanded", String(ouvert && faits.length > 0)); $("zone-coches").hidden = !(ouvert && faits.length);
+  if (actif && $(actif)) $(actif).focus();
+  suggerer();
+}
+
+/* ---------- suggestions : articles déjà achetés, les plus fréquents d'abord ---------- */
+function suggerer() {
+  const q = norm($("nouveau").value), deja = {};
+  ARTS.forEach((a) => { if (!a.coche) deja[cle(a.texte)] = 1; });
+  const l = Object.keys(HISTO).map((k) => ({ k, t: HISTO[k].t, n: HISTO[k].n || 1 }))
+    .filter((h) => !deja[h.k] && q && norm(h.t).indexOf(q) >= 0 && norm(h.t) !== q)
+    .sort((a, b) => {
+      const pa = norm(a.t).indexOf(q) === 0 ? 0 : 1, pb = norm(b.t).indexOf(q) === 0 ? 0 : 1;
+      return pa - pb || b.n - a.n || (norm(a.t) < norm(b.t) ? -1 : 1);
+    }).slice(0, 8);
+  $("sugg").replaceChildren(...l.map((h) => {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = h.t; b.title = "Acheté " + h.n + " fois";
+    const s = document.createElement("small"); s.textContent = "×" + h.n; b.appendChild(s);
+    b.addEventListener("click", () => ajouter(h.t)); return b;
+  }));
+}
+
+/* ---------- écritures ---------- */
+function memoriser(texte) {
+  const k = cle(texte), n = ((HISTO[k] && HISTO[k].n) || 0) + 1;
+  HISTO[k] = { t: texte.trim(), n };
+  return setDoc(refHisto(), { termes: { [k]: { t: texte.trim(), n } } }, { merge: true });
+}
+function ajouter(texte) {
+  texte = String(texte || "").trim(); if (!texte || !UID) return;
+  $("nouveau").value = ""; suggerer(); $("nouveau").focus();
+  const exist = ARTS.find((a) => cle(a.texte) === cle(texte));
+  // déjà dans la liste cochée : on le remet à acheter au lieu de créer un doublon
+  const p = exist ? (exist.coche ? updateDoc(refArticle(exist.id), { coche: false, ordre: Date.now() }) : Promise.resolve())
+                  : addDoc(colArticles(), { texte, coche: false, ordre: Date.now() });
+  p.then(() => memoriser(texte)).catch(erreur);
+}
+function cocher(id, val) { updateDoc(refArticle(id), val ? { coche: true, cocheLe: Date.now() } : { coche: false, ordre: Date.now() }).catch(erreur); }
+function renommer(id, texte) {
+  texte = texte.trim();
+  if (!texte) { supprimer(id); return; }
+  updateDoc(refArticle(id), { texte }).then(() => memoriser(texte)).catch(erreur);
+}
+function supprimer(id) { deleteDoc(refArticle(id)).catch(erreur); }
+
+/* ---------- événements ---------- */
+$("form-ajout").addEventListener("submit", (e) => { e.preventDefault(); ajouter($("nouveau").value); });
+$("nouveau").addEventListener("input", suggerer);
+$("bascule").addEventListener("click", () => { ouvert = !ouvert; try { localStorage.setItem("courses_coches_ouvert", ouvert ? "1" : "0"); } catch (e) { /* sans gravité */ } rendre(); });
+$("vider").addEventListener("click", () => {
+  const ids = ARTS.filter((a) => a.coche).map((a) => a.id); if (!ids.length) return;
+  const c = $("confirme"); c.replaceChildren();
+  const box = document.createElement("div"); box.className = "confirme";
+  const s = document.createElement("span"); s.textContent = "Supprimer les " + ids.length + " éléments cochés ? Ils resteront proposés en suggestion.";
+  const non = document.createElement("button"); non.className = "non"; non.type = "button"; non.textContent = "Annuler"; non.onclick = () => c.replaceChildren();
+  const oui = document.createElement("button"); oui.className = "oui"; oui.type = "button"; oui.textContent = "Supprimer";
+  oui.onclick = () => { c.replaceChildren(); Promise.all(ids.map((id) => deleteDoc(refArticle(id)))).catch(erreur); };
+  box.append(s, non, oui); c.appendChild(box);
+});
+</script>
+</body>
+</html>
