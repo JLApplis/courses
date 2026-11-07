@@ -72,6 +72,12 @@ li.titre .txt { font: 600 19px var(--display); color: var(--leaf); letter-spacin
 li.titre:first-child { margin-top: 0; }
 li.glisse { background: var(--leaf-soft); border-radius: 10px; box-shadow: 0 6px 16px rgba(46,125,79,.25); position: relative; z-index: 2; }
 body.en-glisse, body.en-glisse * { cursor: grabbing !important; user-select: none; }
+li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
+.plus-petit { flex: none; width: 18px; text-align: center; color: var(--leaf); font: 600 18px var(--display); }
+.txt-insert { flex: 1; min-width: 0; background: transparent; border: none; color: var(--fg); font: 500 17px var(--font); padding: 12px 0; }
+.txt-insert::placeholder { color: var(--muted); font-weight: 400; }
+.txt-insert:focus { outline: none; }
+.astuce { color: var(--muted); font-size: 12px; padding: 0 0 4px 38px; }
 .outils-ajout { display: flex; justify-content: flex-start; padding: 2px 0 4px 38px; }
 .vide { color: var(--muted); padding: 16px 0 6px 38px; font-size: 15px; }
 /* éléments cochés */
@@ -139,6 +145,7 @@ body.en-glisse, body.en-glisse * { cursor: grabbing !important; user-select: non
       <input id="nouveau" type="text" placeholder="Ajouter un article ou coller une liste" aria-label="Ajouter un article" enterkeyhint="done">
     </form>
     <div class="sugg" id="sugg" aria-label="Suggestions"></div>
+    <div class="astuce">Astuce : touche Entrée sur un article pour en ajouter un juste dessous.</div>
     <div class="outils-ajout"><button class="lien" id="ajout-titre" type="button" title="Ajoute un titre de magasin en fin de liste (le texte tapé ci-dessus devient son nom)">🏪 Ajouter un magasin</button></div>
   </div>
 
@@ -162,7 +169,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-const VERSION = "1.4";
+const VERSION = "1.5";
 
 /* ===== CONFIGURATION FIREBASE (projet courses-e9163) ===== */
 const firebaseConfig = {
@@ -243,7 +250,8 @@ function ligne(a, deplacable) {
     cb.addEventListener("change", () => cocher(a.id, cb.checked)); elts.push(cb);
   }
   const t = document.createElement("input"); t.className = "txt"; t.value = a.texte; t.id = "txt-" + a.id; t.setAttribute("aria-label", a.titre ? "Magasin" : "Article");
-  t.addEventListener("keydown", (e) => { if (e.key === "Enter") t.blur(); });
+  t.addEventListener("keydown", (e) => { if (e.key !== "Enter") return; e.preventDefault(); if (deplacable) ouvrirInsertion(a.ordre); else t.blur(); });
+  if (deplacable) t.setAttribute("enterkeyhint", "next");
   t.addEventListener("change", () => renommer(a.id, t.value)); elts.push(t);
   if (deplacable) {
     const fl = document.createElement("span"); fl.className = "fleches";
@@ -255,16 +263,18 @@ function ligne(a, deplacable) {
 }
 const enListe = () => ARTS.filter((a) => !a.coche).sort((a, b) => a.ordre - b.ordre);
 function rendre() {
-  const actif = document.activeElement && document.activeElement.classList.contains("txt") ? document.activeElement.id : null;
+  const el = document.activeElement, actif = el && (el.classList.contains("txt") || el.id === "insert-txt") ? el.id : null;
+  const valInsert = $("insert-txt") ? $("insert-txt").value : "";
   const aFaire = enListe();
   const faits = ARTS.filter((a) => a.coche && !a.titre).sort((a, b) => b.cocheLe - a.cocheLe);
   $("liste").replaceChildren(...aFaire.map((a) => ligne(a, true)));
   $("coches").replaceChildren(...faits.map((a) => ligne(a, false)));
+  if (INSERT) poserInsertion(aFaire, valInsert);
   $("vide").hidden = aFaire.some((a) => !a.titre);
   $("bascule").hidden = !faits.length;
   $("nb-coches").textContent = faits.length + " élément" + (faits.length > 1 ? "s" : "") + " coché" + (faits.length > 1 ? "s" : "");
   $("bascule").setAttribute("aria-expanded", String(ouvert && faits.length > 0)); $("zone-coches").hidden = !(ouvert && faits.length);
-  if (actif && $(actif)) $(actif).focus();
+  if (actif && $(actif)) { const f = $(actif); f.focus(); if (actif === "insert-txt") { const n = f.value.length; try { f.setSelectionRange(n, n); } catch (e) { /* sans gravité */ } } }
   suggerer();
 }
 
@@ -291,9 +301,9 @@ function memoriser(texte) {
   HISTO[k] = { t: texte.trim(), n };
   return setDoc(refHisto(), { termes: { [k]: { t: texte.trim(), n } } }, { merge: true });
 }
-function ajouter(texte, ordre) {
+function ajouter(texte, ordre, depuisInsertion) {
   texte = String(texte || "").trim(); if (!texte || !UID) return Promise.resolve();
-  $("nouveau").value = ""; suggerer(); $("nouveau").focus();
+  if (!depuisInsertion) { $("nouveau").value = ""; suggerer(); $("nouveau").focus(); }
   const exist = ARTS.find((a) => !a.titre && cle(a.texte) === cle(texte));
   // déjà dans la liste cochée : on le remet à acheter au lieu de créer un doublon
   const p = exist ? (exist.coche ? updateDoc(refArticle(exist.id), { coche: false }) : Promise.resolve())
@@ -311,7 +321,7 @@ function produit(ligne) {
   if (s.length > 2 && s === s.toUpperCase()) s = s.toLowerCase();       // « OSSO BUCCO » → « osso bucco »
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
 }
-async function ajouterPlusieurs(lignes) {
+async function ajouterPlusieurs(lignes, ici) {
   const vus = new Set(), liste = [];
   lignes.forEach((l) => {
     if (/^\s*ingr[ée]dients?\b/i.test(l) || /:\s*$/.test(l)) return;   // titres
@@ -320,8 +330,50 @@ async function ajouterPlusieurs(lignes) {
   });
   if (!liste.length) return;
   etat("Ajout de " + liste.length + " article" + (liste.length > 1 ? "s" : "") + "…");
+  if (ici) {                                   // collé dans la ligne d'insertion : on range les articles à cet endroit
+    const bas = INSERT.ordre, suiv = enListe().find((a) => a.ordre > bas), haut = suiv ? suiv.ordre : bas + 1000 * (liste.length + 1);
+    for (let i = 0; i < liste.length; i++) { const o = bas + (haut - bas) * (i + 1) / (liste.length + 1); await ajouter(liste[i], o, true); INSERT.ordre = o; }
+    rendre(); return;
+  }
   const base = Date.now();
   for (let i = 0; i < liste.length; i++) await ajouter(liste[i], base + i);   // un à la fois, dans l'ordre
+}
+
+/* ---------- insérer un article juste sous un autre (touche Entrée) ---------- */
+let INSERT = null;   // { ordre } : la ligne d'insertion se place sous le dernier élément d'ordre <= INSERT.ordre
+function ouvrirInsertion(ordre) { INSERT = { ordre }; rendre(); const t = $("insert-txt"); if (t) t.focus(); }
+function fermerInsertion() { if (!INSERT) return; INSERT = null; const r = $("insert-ligne"); if (r) r.remove(); }
+function poserInsertion(aFaire, valeur) {
+  const li = document.createElement("li"); li.className = "art insertion"; li.id = "insert-ligne";
+  const plus = document.createElement("span"); plus.className = "plus-petit"; plus.textContent = "+"; plus.setAttribute("aria-hidden", "true");
+  const t = document.createElement("input"); t.id = "insert-txt"; t.className = "txt-insert"; t.placeholder = "Nouvel article ici"; t.value = valeur || "";
+  t.setAttribute("aria-label", "Nouvel article à cet endroit"); t.setAttribute("enterkeyhint", "next"); t.autocomplete = "off";
+  t.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { fermerInsertion(); return; }
+    if (e.key !== "Enter") return;
+    e.preventDefault(); validerInsertion(false);
+  });
+  t.addEventListener("blur", () => setTimeout(() => { if (INSERT && document.activeElement !== $("insert-txt")) validerInsertion(true); }, 120));
+  t.addEventListener("paste", (e) => {
+    const lignes = ((e.clipboardData || window.clipboardData).getData("text") || "").replace(/\r/g, "").split("\n").map((l) => l.trim()).filter(Boolean);
+    if (lignes.length < 2) return; e.preventDefault(); ajouterPlusieurs(lignes, true);
+  });
+  li.append(plus, t);
+  const lis = [...$("liste").children], apres = aFaire.filter((a) => a.ordre <= INSERT.ordre).pop();
+  const ref = apres ? lis.find((x) => x.dataset.id === apres.id) : null;
+  if (ref) ref.after(li); else $("liste").prepend(li);
+}
+function validerInsertion(etFermer) {
+  if (!INSERT) return;
+  const t = $("insert-txt"), texte = t ? t.value.trim() : "";
+  if (!texte) { fermerInsertion(); return; }
+  const bas = INSERT.ordre, suiv = enListe().find((a) => a.ordre > bas), o = suiv ? (bas + suiv.ordre) / 2 : bas + 1000;
+  const dejaLa = ARTS.some((a) => !a.titre && cle(a.texte) === cle(texte));
+  t.value = "";
+  ajouter(texte, o, true);
+  if (etFermer) { fermerInsertion(); return; }
+  if (!dejaLa) INSERT.ordre = o;   // la ligne suivante s'ouvre sous l'article qu'on vient d'ajouter
+  rendre(); const n = $("insert-txt"); if (n) n.focus();
 }
 function cocher(id, val) { updateDoc(refArticle(id), val ? { coche: true, cocheLe: Date.now() } : { coche: false }).catch(erreur); }
 function ajouterTitre() {
