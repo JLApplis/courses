@@ -125,7 +125,7 @@ li.coche .txt { color: var(--muted); font-weight: 400; text-decoration: line-thr
     <div id="vide" class="vide" hidden>La liste est vide. Ajoute un article ci-dessous.</div>
     <form class="ajout" id="form-ajout" autocomplete="off">
       <span class="plus" aria-hidden="true">+</span>
-      <input id="nouveau" type="text" placeholder="Ajouter un article" aria-label="Ajouter un article" enterkeyhint="done">
+      <input id="nouveau" type="text" placeholder="Ajouter un article ou coller une liste" aria-label="Ajouter un article" enterkeyhint="done">
     </form>
     <div class="sugg" id="sugg" aria-label="Suggestions"></div>
   </div>
@@ -150,7 +150,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-const VERSION = "1.1";
+const VERSION = "1.2";
 
 /* ===== CONFIGURATION FIREBASE (projet courses-e9163) ===== */
 const firebaseConfig = {
@@ -263,14 +263,37 @@ function memoriser(texte) {
   HISTO[k] = { t: texte.trim(), n };
   return setDoc(refHisto(), { termes: { [k]: { t: texte.trim(), n } } }, { merge: true });
 }
-function ajouter(texte) {
-  texte = String(texte || "").trim(); if (!texte || !UID) return;
+function ajouter(texte, ordre) {
+  texte = String(texte || "").trim(); if (!texte || !UID) return Promise.resolve();
   $("nouveau").value = ""; suggerer(); $("nouveau").focus();
   const exist = ARTS.find((a) => cle(a.texte) === cle(texte));
   // déjà dans la liste cochée : on le remet à acheter au lieu de créer un doublon
-  const p = exist ? (exist.coche ? updateDoc(refArticle(exist.id), { coche: false, ordre: Date.now() }) : Promise.resolve())
-                  : addDoc(colArticles(), { texte, coche: false, ordre: Date.now() });
-  p.then(() => memoriser(texte)).catch(erreur);
+  const p = exist ? (exist.coche ? updateDoc(refArticle(exist.id), { coche: false, ordre: ordre || Date.now() }) : Promise.resolve())
+                  : addDoc(colArticles(), { texte, coche: false, ordre: ordre || Date.now() });
+  return p.then(() => memoriser(texte)).catch(erreur);
+}
+
+/* ---------- collage de plusieurs lignes (ex. ingrédients copiés depuis ASSPER) ---------- */
+const UNITES = "kg|g|gr|grammes?|mg|l|litres?|cl|dl|ml|c\\.?\\s?à\\s?(?:soupe|café|s|c)\\.?|cuill(?:è|e)res?\\s+à\\s+(?:soupe|café)|cs|cc|tasses?|verres?|pincées?|brins?|branches?|bottes?|gousses?|tranches?|feuilles?|morceaux?|boîtes?|sachets?|pots?|paquets?|noix|filets?|zestes?|poignées?|bouquets?|briques?|bouteilles?";
+const RE_QTE = new RegExp("^(?:environ\\s+|quelques\\s+)?[\\d\\s.,/½¼¾⅓⅔-]*\\d[\\d\\s.,/½¼¾⅓⅔]*\\s*(?:(?:" + UNITES + ")(?=[\\s.']|$)\\.?)?\\s*", "i");
+// « 200 g de beurre » → « Beurre » ; « 4 osso bucco (1,2 kg) » → « Osso bucco »
+function produit(ligne) {
+  let s = String(ligne || "").replace(/^\s*[-•*·–—]\s*/, "").replace(/^\d+[.)]\s+(?=\D)/, "").replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
+  s = s.replace(RE_QTE, "").replace(/^(?:de\s+la\s+|de\s+l['’]\s*|de\s+|d['’]\s*|des\s+|du\s+)/i, "").replace(/[.;]+$/, "").trim();
+  if (s.length > 2 && s === s.toUpperCase()) s = s.toLowerCase();       // « OSSO BUCCO » → « osso bucco »
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+}
+async function ajouterPlusieurs(lignes) {
+  const vus = new Set(), liste = [];
+  lignes.forEach((l) => {
+    if (/^\s*ingr[ée]dients?\b/i.test(l) || /:\s*$/.test(l)) return;   // titres
+    const p = produit(l); if (p.length < 2 || vus.has(cle(p))) return;
+    vus.add(cle(p)); liste.push(p);
+  });
+  if (!liste.length) return;
+  etat("Ajout de " + liste.length + " article" + (liste.length > 1 ? "s" : "") + "…");
+  const base = Date.now();
+  for (let i = 0; i < liste.length; i++) await ajouter(liste[i], base + i);   // un à la fois, dans l'ordre
 }
 function cocher(id, val) { updateDoc(refArticle(id), val ? { coche: true, cocheLe: Date.now() } : { coche: false, ordre: Date.now() }).catch(erreur); }
 function renommer(id, texte) {
@@ -283,6 +306,12 @@ function supprimer(id) { deleteDoc(refArticle(id)).catch(erreur); }
 /* ---------- événements ---------- */
 $("form-ajout").addEventListener("submit", (e) => { e.preventDefault(); ajouter($("nouveau").value); });
 $("nouveau").addEventListener("input", suggerer);
+$("nouveau").addEventListener("paste", (e) => {
+  const t = (e.clipboardData || window.clipboardData).getData("text") || "";
+  const lignes = t.replace(/\r/g, "").split("\n").map((l) => l.trim()).filter(Boolean);
+  if (lignes.length < 2) return;            // une seule ligne : collage normal dans le champ
+  e.preventDefault(); ajouterPlusieurs(lignes);
+});
 $("bascule").addEventListener("click", () => { ouvert = !ouvert; try { localStorage.setItem("courses_coches_ouvert", ouvert ? "1" : "0"); } catch (e) { /* sans gravité */ } rendre(); });
 $("vider").addEventListener("click", () => {
   const ids = ARTS.filter((a) => a.coche).map((a) => a.id); if (!ids.length) return;
