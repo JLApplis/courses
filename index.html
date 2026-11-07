@@ -62,6 +62,17 @@ li.coche .txt { color: var(--muted); font-weight: 400; text-decoration: line-thr
 .sugg button:hover, .sugg button:focus-visible { background: var(--leaf); color: #fff; border-color: var(--leaf); outline: none; }
 .sugg button small { color: var(--tomato); font-weight: 600; margin-left: 5px; }
 .sugg button:hover small, .sugg button:focus-visible small { color: #FFE2D8; }
+.poignee { flex: none; width: 18px; color: #C4BBA6; font-size: 20px; line-height: 1; cursor: grab; touch-action: none; user-select: none; text-align: center; padding: 10px 0; }
+.poignee:hover { color: var(--leaf); }
+.fleches { flex: none; display: flex; flex-direction: column; gap: 1px; }
+.fl { border: none; background: transparent; color: #B5AC97; font-size: 11px; line-height: 1; width: 26px; height: 18px; border-radius: 6px; cursor: pointer; padding: 0; }
+.fl:hover, .fl:focus-visible { background: var(--leaf-soft); color: var(--leaf); outline: none; }
+li.titre { border-bottom: 2px solid var(--leaf); margin-top: 6px; }
+li.titre .txt { font: 600 19px var(--display); color: var(--leaf); letter-spacing: .2px; }
+li.titre:first-child { margin-top: 0; }
+li.glisse { background: var(--leaf-soft); border-radius: 10px; box-shadow: 0 6px 16px rgba(46,125,79,.25); position: relative; z-index: 2; }
+body.en-glisse, body.en-glisse * { cursor: grabbing !important; user-select: none; }
+.outils-ajout { display: flex; justify-content: flex-start; padding: 2px 0 4px 38px; }
 .vide { color: var(--muted); padding: 16px 0 6px 38px; font-size: 15px; }
 /* éléments cochés */
 .bascule { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 16px; padding: 12px 16px; border: none; border-radius: 14px; background: #F3ECDD; color: #6B6455; font: 600 16px var(--font); cursor: pointer; text-align: left; }
@@ -128,6 +139,7 @@ li.coche .txt { color: var(--muted); font-weight: 400; text-decoration: line-thr
       <input id="nouveau" type="text" placeholder="Ajouter un article ou coller une liste" aria-label="Ajouter un article" enterkeyhint="done">
     </form>
     <div class="sugg" id="sugg" aria-label="Suggestions"></div>
+    <div class="outils-ajout"><button class="lien" id="ajout-titre" type="button" title="Ajoute un titre de magasin en fin de liste (le texte tapé ci-dessus devient son nom)">🏪 Ajouter un magasin</button></div>
   </div>
 
   <button class="bascule" id="bascule" type="button" aria-expanded="false" hidden>
@@ -150,7 +162,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-const VERSION = "1.2";
+const VERSION = "1.3";
 
 /* ===== CONFIGURATION FIREBASE (projet courses-e9163) ===== */
 const firebaseConfig = {
@@ -168,7 +180,7 @@ const auth = getAuth(app);
 const db = initializeFirestore(app, { localCache: persistentLocalCache() });
 
 const $ = (id) => document.getElementById(id);
-let UID = null, ARTS = [], HISTO = {}, ouvert = false, desabonner = [];
+let UID = null, ARTS = [], HISTO = {}, ouvert = false, desabonner = [], glisse = null, aRendre = false;
 try { ouvert = localStorage.getItem("courses_coches_ouvert") === "1"; } catch (e) { /* sans gravité */ }
 $("version").textContent = VERSION;
 
@@ -203,9 +215,9 @@ onAuthStateChanged(auth, (u) => {
   etat("Chargement…"); rendre();
   const minuteur = setTimeout(() => etat("Hors ligne — les changements seront envoyés au retour du réseau", true), 10000);
   desabonner.push(onSnapshot(colArticles(), { includeMetadataChanges: true }, (snap) => {
-    ARTS = snap.docs.map((d) => { const x = d.data(); return { id: d.id, texte: String(x.texte || ""), coche: !!x.coche, ordre: x.ordre || 0, cocheLe: x.cocheLe || 0 }; });
+    ARTS = snap.docs.map((d) => { const x = d.data(); return { id: d.id, texte: String(x.texte || ""), coche: !!x.coche, ordre: x.ordre || 0, cocheLe: x.cocheLe || 0, titre: x.type === "titre" }; });
     if (!snap.metadata.fromCache) { clearTimeout(minuteur); etat(snap.metadata.hasPendingWrites ? "Enregistrement…" : "À jour"); }
-    rendre();
+    if (!glisse) rendre(); else aRendre = true;
   }, (err) => { clearTimeout(minuteur); etat("Liste injoignable (" + err.code + ")", true); }));
   desabonner.push(onSnapshot(refHisto(), (s) => {
     const t = s.exists() ? (s.data().termes || {}) : {}; HISTO = {};
@@ -215,24 +227,40 @@ onAuthStateChanged(auth, (u) => {
 });
 
 /* ---------- affichage ---------- */
-function ligne(a) {
-  const li = document.createElement("li"); li.className = "art" + (a.coche ? " coche" : "");
-  const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = a.coche; cb.setAttribute("aria-label", (a.coche ? "Décocher " : "Cocher ") + a.texte);
-  cb.addEventListener("change", () => cocher(a.id, cb.checked));
-  const t = document.createElement("input"); t.className = "txt"; t.value = a.texte; t.id = "txt-" + a.id; t.setAttribute("aria-label", "Article");
-  t.addEventListener("keydown", (e) => { if (e.key === "Enter") t.blur(); });
-  t.addEventListener("change", () => renommer(a.id, t.value));
-  const x = document.createElement("button"); x.type = "button"; x.className = "suppr"; x.textContent = "×"; x.title = "Supprimer"; x.setAttribute("aria-label", "Supprimer " + a.texte);
-  x.addEventListener("click", () => supprimer(a.id));
-  li.append(cb, t, x); return li;
+function bouton(cls, texte, titre, action) {
+  const b = document.createElement("button"); b.type = "button"; b.className = cls; b.textContent = texte; b.title = titre; b.setAttribute("aria-label", titre);
+  b.addEventListener("click", action); return b;
 }
+function ligne(a, deplacable) {
+  const li = document.createElement("li"); li.className = "art" + (a.coche ? " coche" : "") + (a.titre ? " titre" : ""); li.dataset.id = a.id;
+  const elts = [];
+  if (deplacable) {
+    const h = document.createElement("span"); h.className = "poignee"; h.textContent = "⠿"; h.title = "Glisser pour déplacer"; h.setAttribute("aria-hidden", "true");
+    h.addEventListener("pointerdown", (e) => debutGlisse(e, li)); elts.push(h);
+  }
+  if (!a.titre) {
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = a.coche; cb.setAttribute("aria-label", (a.coche ? "Décocher " : "Cocher ") + a.texte);
+    cb.addEventListener("change", () => cocher(a.id, cb.checked)); elts.push(cb);
+  }
+  const t = document.createElement("input"); t.className = "txt"; t.value = a.texte; t.id = "txt-" + a.id; t.setAttribute("aria-label", a.titre ? "Magasin" : "Article");
+  t.addEventListener("keydown", (e) => { if (e.key === "Enter") t.blur(); });
+  t.addEventListener("change", () => renommer(a.id, t.value)); elts.push(t);
+  if (deplacable) {
+    const fl = document.createElement("span"); fl.className = "fleches";
+    fl.append(bouton("fl", "▲", "Monter " + a.texte, () => deplacer(a.id, -1)), bouton("fl", "▼", "Descendre " + a.texte, () => deplacer(a.id, 1)));
+    elts.push(fl);
+  }
+  elts.push(bouton("suppr", "×", "Supprimer " + a.texte, () => supprimer(a.id)));
+  li.append(...elts); return li;
+}
+const enListe = () => ARTS.filter((a) => !a.coche).sort((a, b) => a.ordre - b.ordre);
 function rendre() {
   const actif = document.activeElement && document.activeElement.classList.contains("txt") ? document.activeElement.id : null;
-  const aFaire = ARTS.filter((a) => !a.coche).sort((a, b) => a.ordre - b.ordre);
-  const faits = ARTS.filter((a) => a.coche).sort((a, b) => b.cocheLe - a.cocheLe);
-  $("liste").replaceChildren(...aFaire.map(ligne));
-  $("coches").replaceChildren(...faits.map(ligne));
-  $("vide").hidden = aFaire.length > 0;
+  const aFaire = enListe();
+  const faits = ARTS.filter((a) => a.coche && !a.titre).sort((a, b) => b.cocheLe - a.cocheLe);
+  $("liste").replaceChildren(...aFaire.map((a) => ligne(a, true)));
+  $("coches").replaceChildren(...faits.map((a) => ligne(a, false)));
+  $("vide").hidden = aFaire.some((a) => !a.titre);
   $("bascule").hidden = !faits.length;
   $("nb-coches").textContent = faits.length + " élément" + (faits.length > 1 ? "s" : "") + " coché" + (faits.length > 1 ? "s" : "");
   $("bascule").setAttribute("aria-expanded", String(ouvert && faits.length > 0)); $("zone-coches").hidden = !(ouvert && faits.length);
@@ -243,7 +271,7 @@ function rendre() {
 /* ---------- suggestions : articles déjà achetés, les plus fréquents d'abord ---------- */
 function suggerer() {
   const q = norm($("nouveau").value), deja = {};
-  ARTS.forEach((a) => { if (!a.coche) deja[cle(a.texte)] = 1; });
+  ARTS.forEach((a) => { if (!a.coche && !a.titre) deja[cle(a.texte)] = 1; });
   const l = Object.keys(HISTO).map((k) => ({ k, t: HISTO[k].t, n: HISTO[k].n || 1 }))
     .filter((h) => !deja[h.k] && q && norm(h.t).indexOf(q) >= 0 && norm(h.t) !== q)
     .sort((a, b) => {
@@ -266,9 +294,9 @@ function memoriser(texte) {
 function ajouter(texte, ordre) {
   texte = String(texte || "").trim(); if (!texte || !UID) return Promise.resolve();
   $("nouveau").value = ""; suggerer(); $("nouveau").focus();
-  const exist = ARTS.find((a) => cle(a.texte) === cle(texte));
+  const exist = ARTS.find((a) => !a.titre && cle(a.texte) === cle(texte));
   // déjà dans la liste cochée : on le remet à acheter au lieu de créer un doublon
-  const p = exist ? (exist.coche ? updateDoc(refArticle(exist.id), { coche: false, ordre: ordre || Date.now() }) : Promise.resolve())
+  const p = exist ? (exist.coche ? updateDoc(refArticle(exist.id), { coche: false }) : Promise.resolve())
                   : addDoc(colArticles(), { texte, coche: false, ordre: ordre || Date.now() });
   return p.then(() => memoriser(texte)).catch(erreur);
 }
@@ -295,17 +323,71 @@ async function ajouterPlusieurs(lignes) {
   const base = Date.now();
   for (let i = 0; i < liste.length; i++) await ajouter(liste[i], base + i);   // un à la fois, dans l'ordre
 }
-function cocher(id, val) { updateDoc(refArticle(id), val ? { coche: true, cocheLe: Date.now() } : { coche: false, ordre: Date.now() }).catch(erreur); }
+function cocher(id, val) { updateDoc(refArticle(id), val ? { coche: true, cocheLe: Date.now() } : { coche: false }).catch(erreur); }
+function ajouterTitre() {
+  if (!UID) return;
+  const texte = $("nouveau").value.trim() || "Magasin";
+  $("nouveau").value = ""; suggerer();
+  addDoc(colArticles(), { texte, type: "titre", coche: false, ordre: Date.now() }).then((r) => {
+    setTimeout(() => { const t = $("txt-" + r.id); if (t) { t.focus(); t.select(); } }, 150);
+  }).catch(erreur);
+}
+/* ---------- déplacer : flèches et glisser ---------- */
+// on place l'élément entre ses nouveaux voisins (ordre = milieu des deux) : une seule écriture
+function ordreEntre(avant, apres) {
+  if (avant && apres) return (avant.ordre + apres.ordre) / 2;
+  if (avant) return avant.ordre + 1000;
+  if (apres) return apres.ordre - 1000;
+  return Date.now();
+}
+function placer(id, ids) {   // ids = ordre voulu de la liste, après déplacement
+  const l = enListe(), parId = Object.fromEntries(l.map((a) => [a.id, a])), i = ids.indexOf(id);
+  const o = ordreEntre(parId[ids[i - 1]], parId[ids[i + 1]]);
+  const a = parId[id]; if (!a || a.ordre === o) return;
+  a.ordre = o; rendre();       // affichage immédiat
+  updateDoc(refArticle(id), { ordre: o }).catch(erreur);
+}
+function deplacer(id, sens) {
+  const ids = enListe().map((a) => a.id), i = ids.indexOf(id), j = i + sens;
+  if (i < 0 || j < 0 || j >= ids.length) return;
+  ids.splice(i, 1); ids.splice(j, 0, id); placer(id, ids);
+  setTimeout(() => { const b = document.querySelector('li[data-id="' + id + '"] .fl:' + (sens < 0 ? "first-child" : "last-child")); if (b) b.focus(); }, 0);
+}
+function debutGlisse(e, li) {
+  if (e.button !== undefined && e.button !== 0) return;
+  e.preventDefault();
+  glisse = { li, id: li.dataset.id, ul: li.parentNode };
+  li.classList.add("glisse"); document.body.classList.add("en-glisse");
+  const bouge = (ev) => {
+    const y = ev.clientY;
+    if (y < 70) window.scrollBy(0, -12); else if (y > window.innerHeight - 70) window.scrollBy(0, 12);
+    const autres = [...glisse.ul.children].filter((x) => x !== li);
+    const cible = autres.find((x) => { const r = x.getBoundingClientRect(); return y < r.top + r.height / 2; });
+    if (cible) { if (li.nextSibling !== cible) glisse.ul.insertBefore(li, cible); }
+    else if (glisse.ul.lastChild !== li) glisse.ul.appendChild(li);
+  };
+  const fin = () => {
+    window.removeEventListener("pointermove", bouge); window.removeEventListener("pointerup", fin); window.removeEventListener("pointercancel", fin);
+    li.classList.remove("glisse"); document.body.classList.remove("en-glisse");
+    const ids = [...glisse.ul.children].map((x) => x.dataset.id), id = glisse.id;
+    glisse = null;
+    placer(id, ids);
+    if (aRendre) { aRendre = false; rendre(); }
+  };
+  window.addEventListener("pointermove", bouge); window.addEventListener("pointerup", fin); window.addEventListener("pointercancel", fin);
+}
 function renommer(id, texte) {
   texte = texte.trim();
   if (!texte) { supprimer(id); return; }
-  updateDoc(refArticle(id), { texte }).then(() => memoriser(texte)).catch(erreur);
+  const a = ARTS.find((x) => x.id === id);
+  updateDoc(refArticle(id), { texte }).then(() => (a && a.titre) ? null : memoriser(texte)).catch(erreur);
 }
 function supprimer(id) { deleteDoc(refArticle(id)).catch(erreur); }
 
 /* ---------- événements ---------- */
 $("form-ajout").addEventListener("submit", (e) => { e.preventDefault(); ajouter($("nouveau").value); });
 $("nouveau").addEventListener("input", suggerer);
+$("ajout-titre").addEventListener("click", ajouterTitre);
 $("nouveau").addEventListener("paste", (e) => {
   const t = (e.clipboardData || window.clipboardData).getData("text") || "";
   const lignes = t.replace(/\r/g, "").split("\n").map((l) => l.trim()).filter(Boolean);
