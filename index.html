@@ -281,7 +281,7 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
   </section>
 
   <section id="vue-sauvegarde" hidden>
-    <div class="bloc-s"><h3>Contenu</h3><p id="sauv-contenu"></p><p class="note">Dernière sauvegarde depuis cet appareil : <b id="sauv-derniere"></b></p></div>
+    <div class="bloc-s"><h3>Contenu</h3><p id="sauv-contenu"></p><p class="note">Dernière sauvegarde (tous appareils) : <b id="sauv-derniere"></b></p></div>
     <div class="bloc-s"><h3>💾 Sauvegarder</h3>
       <p class="note">Crée un fichier JSON daté avec toutes tes listes, leurs articles, les suggestions, les notes et les archives. Il faut du réseau.</p>
       <p class="note">Dossier de sauvegarde : <b id="fs-nom">…</b></p>
@@ -312,19 +312,31 @@ li.insertion { border-bottom: 2px dashed #CFE5D3; background: #FAFDF9; }
 */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { initializeFirestore, persistentLocalCache, collection, doc, addDoc as fbAddDoc, updateDoc as fbUpdateDoc, deleteDoc as fbDeleteDoc, setDoc as fbSetDoc, onSnapshot, getDocs, getDocsFromCache, getDoc, writeBatch } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, collection, doc, addDoc as fbAddDoc, updateDoc as fbUpdateDoc, deleteDoc as fbDeleteDoc, setDoc as fbSetDoc, onSnapshot, getDocs, getDocsFromCache, getDoc, writeBatch, increment } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-const VERSION = "1.17";
+const VERSION = "1.18";
 
 /* chaque écriture compte comme une modification non sauvegardée (sur cet appareil) */
-const KEY_MODIFS = "courses_modifs";
-function nbModifs() { try { return Number(localStorage.getItem(KEY_MODIFS)) || 0; } catch (e) { return 0; } }
-function fixerModifs(n) { try { localStorage.setItem(KEY_MODIFS, String(Math.max(0, n))); } catch (e) { /* sans gravité */ } majBoutonSauv(); }
-function marquerModif() { fixerModifs(nbModifs() + 1); }
-const addDoc = (...a) => { marquerModif(); return fbAddDoc(...a); };
-const updateDoc = (...a) => { marquerModif(); return fbUpdateDoc(...a); };
-const deleteDoc = (...a) => { marquerModif(); return fbDeleteDoc(...a); };
-const setDoc = (...a) => { marquerModif(); return fbSetDoc(...a); };
+/* compteur de modifications non sauvegardées, PARTAGÉ entre appareils (Firestore : users/{uid}/meta/sauvegarde) :
+   chaque modification l'augmente, une sauvegarde faite depuis n'importe quel appareil le remet à zéro */
+let MODIFS = 0, DERNIERE_SAUV = "";
+const refSauv = () => doc(db, "users", UID, "meta", "sauvegarde");
+function nbModifs() { return Math.max(0, MODIFS); }
+function marquerModif() {
+  if (!UID) return;
+  MODIFS++; majBoutonSauv();
+  fbSetDoc(refSauv(), { modifs: increment(1) }, { merge: true }).catch(() => { /* compteur seulement */ });
+}
+function retirerModifs(n, quand) {     // après une sauvegarde : on retire ce qui y est entré (les modifs faites pendant restent comptées)
+  if (!UID) return;
+  MODIFS = Math.max(0, MODIFS - n); majBoutonSauv();
+  const d = { modifs: increment(-n) }; if (quand) d.derniereSauvegarde = quand;
+  fbSetDoc(refSauv(), d, { merge: true }).catch(() => { /* compteur seulement */ });
+}
+function remettreAZero() { if (!UID) return; MODIFS = 0; majBoutonSauv(); fbSetDoc(refSauv(), { modifs: 0 }, { merge: true }).catch(() => { /* compteur seulement */ }); }
+// la modification d'abord, le compteur ensuite (sinon l'écriture du compteur prévient les écouteurs avant la modification)
+const compte = (f) => (...a) => { const p = f(...a); marquerModif(); return p; };
+const addDoc = compte(fbAddDoc), updateDoc = compte(fbUpdateDoc), deleteDoc = compte(fbDeleteDoc), setDoc = compte(fbSetDoc);
 
 /* ===== CONFIGURATION FIREBASE (projet courses-e9163) ===== */
 const firebaseConfig = {
@@ -383,7 +395,13 @@ onAuthStateChanged(auth, (u) => {
   ARTS = []; HISTO = {}; GROUPES = []; G = null; VUE = null; groupesCharges = false;
   UID = u ? u.uid : null;
   $("ecran-connexion").hidden = !!u; $("app").hidden = !u;
+  MODIFS = 0; DERNIERE_SAUV = ""; majBoutonSauv();
   if (!u) return;
+  desabonner.push(onSnapshot(refSauv(), (snap) => {
+    const x = snap.exists() ? snap.data() : {};
+    MODIFS = Math.max(0, Number(x.modifs) || 0); DERNIERE_SAUV = typeof x.derniereSauvegarde === "string" ? x.derniereSauvegarde : "";
+    majBoutonSauv(); if (VUE && VUE.type === "sauvegarde") rendreSauvegarde();
+  }, () => { /* compteur indisponible : le reste fonctionne */ }));
   etat("Chargement…");
   desabonner.push(onSnapshot(colGroupes(), (snap) => {
     GROUPES = snap.docs.map((d) => { const x = d.data(); return { id: d.id, nom: String(x.nom || ""), type: x.type === "note" ? "note" : "liste", archive: !!x.archive,
@@ -930,14 +948,15 @@ async function sauvegarder(dos, prefixe) {
   const n0 = nbModifs();
   const obj = await lireTout(), nom = prefixe + horodatage() + ".json";
   const ou = await ecrireFichier(dos, nom, JSON.stringify(obj, null, 1));
-  try { localStorage.setItem(KEY_DERNIERE, new Date().toISOString()); } catch (e) { /* sans gravité */ }
-  fixerModifs(nbModifs() - n0);
+  const quand = new Date().toISOString();
+  try { localStorage.setItem(KEY_DERNIERE, quand); } catch (e) { /* sans gravité */ }
+  DERNIERE_SAUV = quand; retirerModifs(n0, quand);
   return { obj, nom, ou };
 }
 function rendreSauvegarde() {
   const l = GROUPES.filter((g) => g.type === "liste"), n = GROUPES.filter((g) => g.type === "note"), a = archives().length;
   $("sauv-contenu").textContent = pl(l.length, "liste") + ", " + pl(n.length, "note") + (a ? ", dont " + a + " aux archives" : "") + ".";
-  let d = null; try { d = localStorage.getItem(KEY_DERNIERE); } catch (e) { d = null; }
+  let d = DERNIERE_SAUV || null; if (!d) { try { d = localStorage.getItem(KEY_DERNIERE); } catch (e) { d = null; } }
   const m = nbModifs();
   $("sauv-derniere").textContent = (d ? new Date(d).toLocaleString("fr-FR") : "jamais") + (m ? " — " + pl(m, "modification") + " depuis" : "");
   $("fs-choisir").hidden = !fsDispo();
@@ -1029,7 +1048,7 @@ $("rest-oui").addEventListener("click", async () => {
       ops.slice(i, i + 400).forEach(([r, d]) => { if (d) b.set(r, d); else b.delete(r); });
       await avecDelai(b.commit(), 30000, "Enregistrement");
     }
-    fixerModifs(0);   // les données sont maintenant celles du fichier
+    remettreAZero();   // les données sont maintenant celles du fichier
     msgSauv("Sauvegarde restaurée : " + compter(o) + ". L'état d'avant est dans " + avant.nom + " (" + avant.ou + ").");
     rendreSauvegarde(); rendreTiroir();
   } catch (e) { msgSauv("Restauration interrompue : " + e.message + ". Si une partie a été remplacée, restaure le fichier « COURSES_avant_restauration_… ».", true); }
