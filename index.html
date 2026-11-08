@@ -62,11 +62,8 @@ li.coche .txt { color: var(--muted); font-weight: 400; text-decoration: line-thr
 .sugg button:hover, .sugg button:focus-visible { background: var(--leaf); color: #fff; border-color: var(--leaf); outline: none; }
 .sugg button small { color: var(--tomato); font-weight: 600; margin-left: 5px; }
 .sugg button:hover small, .sugg button:focus-visible small { color: #FFE2D8; }
-.poignee { flex: none; width: 18px; color: #C4BBA6; font-size: 20px; line-height: 1; cursor: grab; touch-action: none; user-select: none; text-align: center; padding: 10px 0; }
+.poignee { flex: none; width: 30px; color: #B5AC97; font-size: 22px; line-height: 1; cursor: grab; touch-action: none; user-select: none; text-align: center; padding: 10px 0; }
 .poignee:hover { color: var(--leaf); }
-.fleches { flex: none; display: flex; flex-direction: column; gap: 1px; }
-.fl { border: none; background: transparent; color: #B5AC97; font-size: 11px; line-height: 1; width: 26px; height: 18px; border-radius: 6px; cursor: pointer; padding: 0; }
-.fl:hover, .fl:focus-visible { background: var(--leaf-soft); color: var(--leaf); outline: none; }
 li.titre { border-bottom: 2px solid var(--leaf); margin-top: 6px; }
 li.titre .txt { font: 600 19px var(--display); color: var(--leaf); letter-spacing: .2px; }
 li.titre:first-child { margin-top: 0; }
@@ -309,7 +306,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, collection, doc, addDoc as fbAddDoc, updateDoc as fbUpdateDoc, deleteDoc as fbDeleteDoc, setDoc as fbSetDoc, onSnapshot, getDocs, getDocsFromCache, getDoc, writeBatch } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-const VERSION = "1.14";
+const VERSION = "1.15";
 
 /* chaque écriture compte comme une modification non sauvegardée (sur cet appareil) */
 const KEY_MODIFS = "courses_modifs";
@@ -598,10 +595,6 @@ function bouton(cls, texte, titre, action) {
 function ligne(a, deplacable) {
   const li = document.createElement("li"); li.className = "art" + (a.coche ? " coche" : "") + (a.titre ? " titre" : ""); li.dataset.id = a.id;
   const elts = [];
-  if (deplacable) {
-    const h = document.createElement("span"); h.className = "poignee"; h.textContent = "⠿"; h.title = "Glisser pour déplacer"; h.setAttribute("aria-hidden", "true");
-    h.addEventListener("pointerdown", (e) => debutGlisse(e, li)); elts.push(h);
-  }
   if (!a.titre) {
     const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = a.coche; cb.setAttribute("aria-label", (a.coche ? "Décocher " : "Cocher ") + a.texte);
     cb.addEventListener("change", () => cocher(a.id, cb.checked)); elts.push(cb);
@@ -610,10 +603,9 @@ function ligne(a, deplacable) {
   t.addEventListener("keydown", (e) => { if (e.key !== "Enter") return; e.preventDefault(); if (deplacable) ouvrirInsertion(a.ordre); else t.blur(); });
   if (deplacable) t.setAttribute("enterkeyhint", "next");
   t.addEventListener("change", () => renommer(a.id, t.value)); elts.push(t);
-  if (deplacable) {
-    const fl = document.createElement("span"); fl.className = "fleches";
-    fl.append(bouton("fl", "▲", "Monter " + a.texte, () => deplacer(a.id, -1)), bouton("fl", "▼", "Descendre " + a.texte, () => deplacer(a.id, 1)));
-    elts.push(fl);
+  if (deplacable) {                                 // poignée ⠿ à droite, avant la croix
+    const h = document.createElement("span"); h.className = "poignee"; h.textContent = "⠿"; h.title = "Glisser pour déplacer"; h.setAttribute("aria-hidden", "true");
+    h.addEventListener("pointerdown", (e) => debutGlisse(e, li)); elts.push(h);
   }
   elts.push(bouton("suppr", "×", "Supprimer " + a.texte, () => supprimer(a.id)));
   li.append(...elts); return li;
@@ -741,7 +733,7 @@ function ajouterTitre() {
   setDoc(r, { texte, type: "titre", coche: false, ordre: Date.now() }).catch(erreur);
   setTimeout(() => { const t = $("txt-" + r.id); if (t) { t.focus(); t.select(); } }, 150);
 }
-/* ---------- déplacer : flèches et glisser ---------- */
+/* ---------- déplacer : glisser avec la poignée ⠿ ---------- */
 // groupe = un magasin et ses articles (jusqu'au magasin suivant) ; un article seul = groupe d'un élément
 function groupeDe(id, liste) {
   const i = liste.findIndex((a) => a.id === id); if (i < 0) return [];
@@ -764,29 +756,6 @@ function placer(groupe, ids) {   // ids = ordre voulu de la liste, après dépla
   if (!maj.length) return;
   rendre();                     // affichage immédiat
   maj.forEach(([id, o]) => updateDoc(refArticle(id), { ordre: o }).catch(erreur));
-}
-function deplacer(id, sens) {
-  const l = enListe(), ids = l.map((a) => a.id), a = l.find((x) => x.id === id); if (!a) return;
-  if (!a.titre) {                                   // article : un cran
-    const i = ids.indexOf(id), j = i + sens;
-    if (j < 0 || j >= ids.length) return;
-    ids.splice(i, 1); ids.splice(j, 0, id); placer([id], ids);
-  } else {                                          // magasin : saute le magasin voisin, avec ses articles
-    const g = groupeDe(id, l), i0 = ids.indexOf(g[0]);
-    const reste = ids.filter((x) => !g.includes(x));
-    const titres = l.filter((x) => x.titre && !g.includes(x.id)).map((x) => x.id);
-    let pos;                                        // index d'insertion dans « reste », toujours devant un magasin ou en fin
-    if (sens < 0) {
-      const prec = titres.filter((t) => ids.indexOf(t) < i0).pop(); if (!prec) return;
-      pos = reste.indexOf(prec);
-    } else {
-      const suiv = titres.find((t) => ids.indexOf(t) > i0); if (!suiv) return;
-      const apres = titres.find((t) => ids.indexOf(t) > ids.indexOf(suiv));
-      pos = apres ? reste.indexOf(apres) : reste.length;
-    }
-    reste.splice(pos, 0, ...g); placer(g, reste);
-  }
-  setTimeout(() => { const b = document.querySelector('li[data-id="' + id + '"] .fl:' + (sens < 0 ? "first-child" : "last-child")); if (b) b.focus(); }, 0);
 }
 function debutGlisse(e, li) {
   if (e.button !== undefined && e.button !== 0) return;
